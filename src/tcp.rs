@@ -44,11 +44,7 @@ pub struct NFSTcpListener<T: NFSFileSystem + Send + Sync + 'static> {
 /// Generates a local loopback IP address from a 16-bit host number
 /// Used for creating multiple local test addresses in the 127.88.x.y range
 pub fn generate_host_ip(hostnum: u16) -> String {
-    format!(
-        "127.88.{}.{}",
-        ((hostnum >> 8) & 0xFF) as u8,
-        (hostnum & 0xFF) as u8
-    )
+    format!("127.88.{}.{}", ((hostnum >> 8) & 0xFF) as u8, (hostnum & 0xFF) as u8)
 }
 
 /// Processes an established TCP socket connection from an NFS client
@@ -180,16 +176,10 @@ impl<T: NFSFileSystem + Send + Sync + 'static> NFSTcpListener<T> {
     /// A Result containing either the new NFSTcpListener or an IO error
     pub async fn bind(ipstr: &str, fs: T) -> io::Result<NFSTcpListener<T>> {
         let (ip, port) = ipstr.split_once(':').ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::AddrNotAvailable,
-                "IP Address must be of form ip:port",
-            )
+            io::Error::new(io::ErrorKind::AddrNotAvailable, "IP Address must be of form ip:port")
         })?;
         let port = port.parse::<u16>().map_err(|_| {
-            io::Error::new(
-                io::ErrorKind::AddrNotAvailable,
-                "Port not in range 0..=65535",
-            )
+            io::Error::new(io::ErrorKind::AddrNotAvailable, "Port not in range 0..=65535")
         })?;
 
         let arcfs: Arc<T> = Arc::new(fs);
@@ -261,10 +251,7 @@ impl<T: NFSFileSystem + Send + Sync + 'static> NFSTcpListener<T> {
     pub fn with_export_name<S: AsRef<str>>(&mut self, export_name: S) {
         self.export_name = Arc::new(format!(
             "/{}",
-            export_name
-                .as_ref()
-                .trim_end_matches('/')
-                .trim_start_matches('/')
+            export_name.as_ref().trim_end_matches('/').trim_start_matches('/')
         ))
     }
 }

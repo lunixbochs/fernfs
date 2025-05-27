@@ -27,9 +27,7 @@ pub struct MirrorFS {
 impl MirrorFS {
     /// Creates a new mirror file system with the given root path
     pub fn new(root: PathBuf) -> Self {
-        Self {
-            fsmap: tokio::sync::Mutex::new(FSMap::new(root)),
-        }
+        Self { fsmap: tokio::sync::Mutex::new(FSMap::new(root)) }
     }
 
     /// Creates a file system object in a given directory and of a given type
@@ -52,9 +50,7 @@ impl MirrorFS {
                 if exists_no_traverse(&path) {
                     return Err(nfs3::nfsstat3::NFS3ERR_EXIST);
                 }
-                fs::create_dir(&path)
-                    .await
-                    .map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
+                fs::create_dir(&path).await.map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
             }
             CreateFSObject::File(setattr) => {
                 debug!("create {:?}", path);
@@ -86,17 +82,12 @@ impl MirrorFS {
         let sym = fsmap.intern.intern(objectname_osstr).unwrap();
         let mut name = ent.name.clone();
         name.push(sym);
-        let meta = path
-            .symlink_metadata()
-            .map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
+        let meta = path.symlink_metadata().map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
         let fileid = fsmap.create_entry(&name, meta.clone()).await;
 
         // update the children list
-        if let Some(ref mut children) = fsmap
-            .id_to_path
-            .get_mut(&dirid)
-            .ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?
-            .children
+        if let Some(ref mut children) =
+            fsmap.id_to_path.get_mut(&dirid).ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?.children
         {
             children.insert(fileid);
         }
@@ -166,14 +157,8 @@ impl vfs::NFSFileSystem for MirrorFS {
         let path = fsmap.sym_to_path(&ent.name).await;
         drop(fsmap);
 
-        let mut f = File::open(&path)
-            .await
-            .or(Err(nfs3::nfsstat3::NFS3ERR_NOENT))?;
-        let len = f
-            .metadata()
-            .await
-            .or(Err(nfs3::nfsstat3::NFS3ERR_NOENT))?
-            .len();
+        let mut f = File::open(&path).await.or(Err(nfs3::nfsstat3::NFS3ERR_NOENT))?;
+        let len = f.metadata().await.or(Err(nfs3::nfsstat3::NFS3ERR_NOENT))?.len();
         let mut start = offset;
         let mut end = offset + count as u64;
         let eof = end >= len;
@@ -183,13 +168,9 @@ impl vfs::NFSFileSystem for MirrorFS {
         if end > len {
             end = len;
         }
-        f.seek(SeekFrom::Start(start))
-            .await
-            .or(Err(nfs3::nfsstat3::NFS3ERR_IO))?;
+        f.seek(SeekFrom::Start(start)).await.or(Err(nfs3::nfsstat3::NFS3ERR_IO))?;
         let mut buf = vec![0; (end - start) as usize];
-        f.read_exact(&mut buf)
-            .await
-            .or(Err(nfs3::nfsstat3::NFS3ERR_IO))?;
+        f.read_exact(&mut buf).await.or(Err(nfs3::nfsstat3::NFS3ERR_IO))?;
         Ok((buf, eof))
     }
 
@@ -212,16 +193,10 @@ impl vfs::NFSFileSystem for MirrorFS {
         // we must have children here
         let children = entry.children.ok_or(nfs3::nfsstat3::NFS3ERR_IO)?;
 
-        let mut ret = vfs::ReadDirResult {
-            entries: Vec::new(),
-            end: false,
-        };
+        let mut ret = vfs::ReadDirResult { entries: Vec::new(), end: false };
 
-        let range_start = if start_after > 0 {
-            Bound::Excluded(start_after)
-        } else {
-            Bound::Unbounded
-        };
+        let range_start =
+            if start_after > 0 { Bound::Excluded(start_after) } else { Bound::Unbounded };
 
         let remaining_length = children.range((range_start, Bound::Unbounded)).count();
         let path = fsmap.sym_to_path(&entry.name).await;
@@ -258,9 +233,7 @@ impl vfs::NFSFileSystem for MirrorFS {
         path_setattr(&path, &setattr).await?;
 
         // I have to lookup a second time to update
-        let metadata = path
-            .symlink_metadata()
-            .or(Err(nfs3::nfsstat3::NFS3ERR_IO))?;
+        let metadata = path.symlink_metadata().or(Err(nfs3::nfsstat3::NFS3ERR_IO))?;
         if let Ok(entry) = fsmap.find_entry_mut(id) {
             entry.fsmeta = metadata_to_fattr3(id, &metadata);
         }
@@ -274,16 +247,13 @@ impl vfs::NFSFileSystem for MirrorFS {
         let path = fsmap.sym_to_path(&ent.name).await;
         drop(fsmap);
         debug!("write to init {:?}", path);
-        let mut f = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .open(&path)
-            .await
-            .map_err(|e| {
-                debug!("Unable to open {:?}", e);
-                nfs3::nfsstat3::NFS3ERR_IO
-            })?;
+        let mut f =
+            OpenOptions::new().write(true).create(true).truncate(false).open(&path).await.map_err(
+                |e| {
+                    debug!("Unable to open {:?}", e);
+                    nfs3::nfsstat3::NFS3ERR_IO
+                },
+            )?;
         f.seek(SeekFrom::Start(offset)).await.map_err(|e| {
             debug!("Unable to seek {:?}", e);
             nfs3::nfsstat3::NFS3ERR_IO
@@ -306,8 +276,7 @@ impl vfs::NFSFileSystem for MirrorFS {
         filename: &nfs3::filename3,
         setattr: nfs3::sattr3,
     ) -> NFSResult<(nfs3::fileid3, nfs3::fattr3)> {
-        self.create_fs_object(dirid, filename, &CreateFSObject::File(setattr))
-            .await
+        self.create_fs_object(dirid, filename, &CreateFSObject::File(setattr)).await
     }
 
     /// Creates an exclusive file in a directory
@@ -316,10 +285,7 @@ impl vfs::NFSFileSystem for MirrorFS {
         dirid: nfs3::fileid3,
         filename: &nfs3::filename3,
     ) -> NFSResult<nfs3::fileid3> {
-        Ok(self
-            .create_fs_object(dirid, filename, &CreateFSObject::Exclusive)
-            .await?
-            .0)
+        Ok(self.create_fs_object(dirid, filename, &CreateFSObject::Exclusive).await?.0)
     }
 
     /// Removes a file from a directory
@@ -330,19 +296,12 @@ impl vfs::NFSFileSystem for MirrorFS {
         path.push(OsStr::from_bytes(filename));
         if let Ok(meta) = path.symlink_metadata() {
             if meta.is_dir() {
-                fs::remove_dir(&path)
-                    .await
-                    .map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
+                fs::remove_dir(&path).await.map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
             } else {
-                fs::remove_file(&path)
-                    .await
-                    .map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
+                fs::remove_file(&path).await.map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
             }
 
-            let filesym = fsmap
-                .intern
-                .intern(OsStr::from_bytes(filename).to_os_string())
-                .unwrap();
+            let filesym = fsmap.intern.intern(OsStr::from_bytes(filename).to_os_string()).unwrap();
             let mut sympath = ent.name.clone();
             sympath.push(filesym);
             if let Some(fileid) = fsmap.path_to_id.get(&sympath).copied() {
@@ -393,18 +352,10 @@ impl vfs::NFSFileSystem for MirrorFS {
             return Err(nfs3::nfsstat3::NFS3ERR_NOENT);
         }
         debug!("Rename {:?} to {:?}", from_path, to_path);
-        fs::rename(&from_path, &to_path)
-            .await
-            .map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
+        fs::rename(&from_path, &to_path).await.map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
 
-        let oldsym = fsmap
-            .intern
-            .intern(OsStr::from_bytes(from_filename).to_os_string())
-            .unwrap();
-        let newsym = fsmap
-            .intern
-            .intern(OsStr::from_bytes(to_filename).to_os_string())
-            .unwrap();
+        let oldsym = fsmap.intern.intern(OsStr::from_bytes(from_filename).to_os_string()).unwrap();
+        let newsym = fsmap.intern.intern(OsStr::from_bytes(to_filename).to_os_string()).unwrap();
 
         let mut from_sympath = from_dirent.name.clone();
         from_sympath.push(oldsym);
@@ -445,8 +396,7 @@ impl vfs::NFSFileSystem for MirrorFS {
         dirid: nfs3::fileid3,
         dirname: &nfs3::filename3,
     ) -> NFSResult<(nfs3::fileid3, nfs3::fattr3)> {
-        self.create_fs_object(dirid, dirname, &CreateFSObject::Directory)
-            .await
+        self.create_fs_object(dirid, dirname, &CreateFSObject::Directory).await
     }
 
     /// Creates a symlink
@@ -457,12 +407,8 @@ impl vfs::NFSFileSystem for MirrorFS {
         symlink: &nfs3::nfspath3,
         attr: &nfs3::sattr3,
     ) -> NFSResult<(nfs3::fileid3, nfs3::fattr3)> {
-        self.create_fs_object(
-            dirid,
-            linkname,
-            &CreateFSObject::Symlink((*attr, symlink.clone())),
-        )
-        .await
+        self.create_fs_object(dirid, linkname, &CreateFSObject::Symlink((*attr, symlink.clone())))
+            .await
     }
 
     /// Reads a symlink
@@ -507,25 +453,18 @@ impl vfs::NFSFileSystem for MirrorFS {
         }
 
         // Create the hard link
-        fs::hard_link(&source_path, &target_path)
-            .await
-            .map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
+        fs::hard_link(&source_path, &target_path).await.map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
 
         // Update the directory listing
         let sym = fsmap.intern.intern(link_name_osstr).unwrap();
         let mut name = dir_entry.name.clone();
         name.push(sym);
-        let meta = target_path
-            .symlink_metadata()
-            .map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
+        let meta = target_path.symlink_metadata().map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
         let new_fileid = fsmap.create_entry(&name, meta.clone()).await;
 
         // Update the children list
-        if let Some(ref mut children) = fsmap
-            .id_to_path
-            .get_mut(&link_dir_id)
-            .ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?
-            .children
+        if let Some(ref mut children) =
+            fsmap.id_to_path.get_mut(&link_dir_id).ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?.children
         {
             children.insert(new_fileid);
         }
@@ -697,17 +636,12 @@ impl vfs::NFSFileSystem for MirrorFS {
         let sym = fsmap.intern.intern(name_osstr).unwrap();
         let mut full_name = dir_entry.name.clone();
         full_name.push(sym);
-        let meta = path
-            .symlink_metadata()
-            .map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
+        let meta = path.symlink_metadata().map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
         let fileid = fsmap.create_entry(&full_name, meta.clone()).await;
 
         // Update the children list
-        if let Some(ref mut children) = fsmap
-            .id_to_path
-            .get_mut(&dir_id)
-            .ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?
-            .children
+        if let Some(ref mut children) =
+            fsmap.id_to_path.get_mut(&dir_id).ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?.children
         {
             children.insert(fileid);
         }

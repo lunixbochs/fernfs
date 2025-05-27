@@ -243,9 +243,7 @@ pub async fn path_setattr(path: &Path, setattr: &nfs3::sattr3) -> Result<(), nfs
             .await
             .or(Err(nfs3::nfsstat3::NFS3ERR_IO))?;
         debug!(" -- set size {:?} {:?}", path, size3);
-        file.set_len(size3)
-            .await
-            .or(Err(nfs3::nfsstat3::NFS3ERR_IO))?;
+        file.set_len(size3).await.or(Err(nfs3::nfsstat3::NFS3ERR_IO))?;
     }
     Ok(())
 }

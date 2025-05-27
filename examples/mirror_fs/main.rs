@@ -22,14 +22,10 @@ async fn main() {
         .with_writer(std::io::stderr)
         .init();
 
-    let path = std::env::args()
-        .nth(1)
-        .expect("must supply directory to mirror");
+    let path = std::env::args().nth(1).expect("must supply directory to mirror");
     let path = PathBuf::from(path);
 
     let fs = fs::MirrorFS::new(path);
-    let listener = NFSTcpListener::bind(&format!("127.0.0.1:{HOSTPORT}"), fs)
-        .await
-        .unwrap();
+    let listener = NFSTcpListener::bind(&format!("127.0.0.1:{HOSTPORT}"), fs).await.unwrap();
     listener.handle_forever().await.unwrap();
 }

@@ -81,15 +81,9 @@ impl ReadDirSimpleResult {
         let entries: Vec<DirEntrySimple> = result
             .entries
             .iter()
-            .map(|e| DirEntrySimple {
-                fileid: e.fileid,
-                name: e.name.clone(),
-            })
+            .map(|e| DirEntrySimple { fileid: e.fileid, name: e.name.clone() })
             .collect();
-        ReadDirSimpleResult {
-            entries,
-            end: result.end,
-        }
+        ReadDirSimpleResult { entries, end: result.end }
     }
 }
 
@@ -107,10 +101,8 @@ static GENERATION_NUMBER_INIT: Once = Once::new();
 fn get_generation_number() -> u64 {
     unsafe {
         GENERATION_NUMBER_INIT.call_once(|| {
-            GENERATION_NUMBER = SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_millis() as u64;
+            GENERATION_NUMBER =
+                SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64;
         });
         GENERATION_NUMBER
     }
@@ -379,9 +371,7 @@ pub trait NFSFileSystem: Sync {
         dirid: nfs3::fileid3,
         count: usize,
     ) -> Result<ReadDirSimpleResult, nfs3::nfsstat3> {
-        Ok(ReadDirSimpleResult::from_readdir_result(
-            &self.readdir(dirid, 0, count).await?,
-        ))
+        Ok(ReadDirSimpleResult::from_readdir_result(&self.readdir(dirid, 0, count).await?))
     }
 
     /// Creates a symbolic link
@@ -507,10 +497,7 @@ pub trait NFSFileSystem: Sync {
             wtmult: 1024 * 1024,
             dtpref: 1024 * 1024,
             maxfilesize: 128 * 1024 * 1024 * 1024,
-            time_delta: nfs3::nfstime3 {
-                seconds: 0,
-                nseconds: 1000000,
-            },
+            time_delta: nfs3::nfstime3 { seconds: 0, nseconds: 1000000 },
             properties: nfs3::fs::FSF_SYMLINK
                 | nfs3::fs::FSF_HOMOGENEOUS
                 | nfs3::fs::FSF_CANSETTIME,

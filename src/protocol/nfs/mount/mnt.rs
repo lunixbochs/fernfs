@@ -45,11 +45,7 @@ pub async fn mountproc3_mnt(
     let utf8path = std::str::from_utf8(&path).unwrap_or_default();
     debug!("mountproc3_mnt({:?},{:?}) ", xid, utf8path);
     let path = if let Some(path) = utf8path.strip_prefix(context.export_name.as_str()) {
-        let path = path
-            .trim_start_matches('/')
-            .trim_end_matches('/')
-            .trim()
-            .as_bytes();
+        let path = path.trim_start_matches('/').trim_end_matches('/').trim().as_bytes();
         let mut new_path = Vec::with_capacity(path.len() + 1);
         new_path.push(b'/');
         new_path.extend_from_slice(path);

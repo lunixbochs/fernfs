@@ -72,10 +72,7 @@ pub async fn nfsproc3_rename(
     fromdirops.deserialize(input)?;
     todirops.deserialize(input)?;
 
-    debug!(
-        "nfsproc3_rename({:?}, {:?}, {:?}) ",
-        xid, fromdirops, todirops
-    );
+    debug!("nfsproc3_rename({:?}, {:?}, {:?}) ", xid, fromdirops, todirops);
 
     // find the from directory
     let from_dirid = context.vfs.fh_to_id(&fromdirops.dir);
@@ -106,11 +103,7 @@ pub async fn nfsproc3_rename(
     // get the object attributes before the write
     let pre_from_dir_attr = match context.vfs.getattr(from_dirid).await {
         Ok(v) => {
-            let wccattr = nfs3::wcc_attr {
-                size: v.size,
-                mtime: v.mtime,
-                ctime: v.ctime,
-            };
+            let wccattr = nfs3::wcc_attr { size: v.size, mtime: v.mtime, ctime: v.ctime };
             nfs3::pre_op_attr::attributes(wccattr)
         }
         Err(stat) => {
@@ -125,11 +118,7 @@ pub async fn nfsproc3_rename(
     // get the object attributes before the write
     let pre_to_dir_attr = match context.vfs.getattr(to_dirid).await {
         Ok(v) => {
-            let wccattr = nfs3::wcc_attr {
-                size: v.size,
-                mtime: v.mtime,
-                ctime: v.ctime,
-            };
+            let wccattr = nfs3::wcc_attr { size: v.size, mtime: v.mtime, ctime: v.ctime };
             nfs3::pre_op_attr::attributes(wccattr)
         }
         Err(stat) => {
@@ -142,10 +131,7 @@ pub async fn nfsproc3_rename(
     };
 
     // rename!
-    let res = context
-        .vfs
-        .rename(from_dirid, &fromdirops.name, to_dirid, &todirops.name)
-        .await;
+    let res = context.vfs.rename(from_dirid, &fromdirops.name, to_dirid, &todirops.name).await;
 
     // Re-read dir attributes for post op attr
     let post_from_dir_attr = match context.vfs.getattr(from_dirid).await {
@@ -156,15 +142,9 @@ pub async fn nfsproc3_rename(
         Ok(v) => nfs3::post_op_attr::attributes(v),
         Err(_) => nfs3::post_op_attr::Void,
     };
-    let from_wcc_res = nfs3::wcc_data {
-        before: pre_from_dir_attr,
-        after: post_from_dir_attr,
-    };
+    let from_wcc_res = nfs3::wcc_data { before: pre_from_dir_attr, after: post_from_dir_attr };
 
-    let to_wcc_res = nfs3::wcc_data {
-        before: pre_to_dir_attr,
-        after: post_to_dir_attr,
-    };
+    let to_wcc_res = nfs3::wcc_data { before: pre_to_dir_attr, after: post_to_dir_attr };
 
     match res {
         Ok(()) => {

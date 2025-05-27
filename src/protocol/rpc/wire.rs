@@ -78,10 +78,7 @@ pub async fn handle_rpc(
             return Ok(true);
         }
 
-        if context
-            .transaction_tracker
-            .is_retransmission(xid, &context.client_addr)
-        {
+        if context.transaction_tracker.is_retransmission(xid, &context.client_addr) {
             // This is a retransmission
             // Drop the message and return
             debug!(
@@ -106,19 +103,13 @@ pub async fn handle_rpc(
                 xdr::rpc::prog_unavail_reply_message(xid).serialize(output)?;
                 Ok(())
             } else {
-                warn!(
-                    "Unknown RPC Program number {} != {}",
-                    call.prog,
-                    nfs3::PROGRAM
-                );
+                warn!("Unknown RPC Program number {} != {}", call.prog, nfs3::PROGRAM);
                 xdr::rpc::prog_unavail_reply_message(xid).serialize(output)?;
                 Ok(())
             }
         }
         .map(|_| true);
-        context
-            .transaction_tracker
-            .mark_processed(xid, &context.client_addr);
+        context.transaction_tracker.mark_processed(xid, &context.client_addr);
         res
     } else {
         error!("Unexpectedly received a Reply instead of a Call");
@@ -153,11 +144,7 @@ async fn read_fragment(
     let start_offset = append_to.len();
     append_to.resize(append_to.len() + length, 0);
     socket.read_exact(&mut append_to[start_offset..]).await?;
-    trace!(
-        "Finishing Reading fragment length:{}, last:{}",
-        length,
-        is_last
-    );
+    trace!("Finishing Reading fragment length:{}, last:{}", length, is_last);
     Ok(is_last)
 }
 
@@ -194,23 +181,14 @@ pub async fn write_fragment(
 
         // Create the fragment header
         // The highest bit indicates if this is the last fragment
-        let fragment_header = if is_last {
-            fragment_size as u32 + (1 << 31)
-        } else {
-            fragment_size as u32
-        };
+        let fragment_header =
+            if is_last { fragment_size as u32 + (1 << 31) } else { fragment_size as u32 };
 
         let header_buf = u32::to_be_bytes(fragment_header);
         socket.write_all(&header_buf).await?;
 
-        trace!(
-            "Writing fragment length:{}, last:{}",
-            fragment_size,
-            is_last
-        );
-        socket
-            .write_all(&buf[offset..offset + fragment_size])
-            .await?;
+        trace!("Writing fragment length:{}, last:{}", fragment_size, is_last);
+        socket.write_all(&buf[offset..offset + fragment_size]).await?;
 
         offset += fragment_size;
     }
@@ -249,11 +227,7 @@ impl SocketMessageHandler {
     /// order of operations.
     pub fn new(
         context: &rpc::Context,
-    ) -> (
-        Self,
-        DuplexStream,
-        mpsc::UnboundedReceiver<SocketMessageType>,
-    ) {
+    ) -> (Self, DuplexStream, mpsc::UnboundedReceiver<SocketMessageType>) {
         let (socksend, sockrecv) = tokio::io::duplex(256000);
         let (msgsend, msgrecv) = mpsc::unbounded_channel();
 
@@ -261,11 +235,8 @@ impl SocketMessageHandler {
         let (result_sender, mut result_receiver) = mpsc::unbounded_channel::<CommandResult>();
 
         // Create command queue with our RPC processing function
-        let command_queue = CommandQueue::new(
-            process_rpc_command,
-            result_sender,
-            DEFAULT_RESPONSE_BUFFER_CAPACITY,
-        );
+        let command_queue =
+            CommandQueue::new(process_rpc_command, result_sender, DEFAULT_RESPONSE_BUFFER_CAPACITY);
 
         // Process results from command queue and send them to socket
         tokio::spawn(async move {

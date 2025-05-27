@@ -56,11 +56,7 @@ pub fn handle_portmap(
     context: &rpc::Context,
 ) -> Result<(), anyhow::Error> {
     if call.vers != portmap::VERSION {
-        error!(
-            "Invalid Portmap Version number {} != {}",
-            call.vers,
-            portmap::VERSION
-        );
+        error!("Invalid Portmap Version number {} != {}", call.vers, portmap::VERSION);
         xdr::rpc::prog_mismatch_reply_message(xid, portmap::VERSION).serialize(output)?;
         return Ok(());
     }
@@ -68,7 +64,7 @@ pub fn handle_portmap(
         portmap::PortmapProgram::from_u32(call.proc).unwrap_or(portmap::PortmapProgram::INVALID);
 
     match prog {
-        portmap::PortmapProgram::PMAPPROC_NULL => pmapproc_null(xid, input, output)?,
+        portmap::PortmapProgram::PMAPPROC_NULL => pmapproc_null(xid, output)?,
         portmap::PortmapProgram::PMAPPROC_GETPORT => pmapproc_getport(xid, input, output, context)?,
         _ => {
             xdr::rpc::proc_unavail_reply_message(xid).serialize(output)?;

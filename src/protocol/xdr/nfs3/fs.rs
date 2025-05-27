@@ -113,17 +113,7 @@ pub struct FSSTAT3resok {
     /// Zero means the information is always valid
     pub invarsec: u32,
 }
-XDRStruct!(
-    FSSTAT3resok,
-    obj_attributes,
-    tbytes,
-    fbytes,
-    abytes,
-    tfiles,
-    ffiles,
-    afiles,
-    invarsec
-);
+XDRStruct!(FSSTAT3resok, obj_attributes, tbytes, fbytes, abytes, tfiles, ffiles, afiles, invarsec);
 
 /// Path configuration information returned by PATHCONF procedure
 /// as defined in RFC 1813 section 3.3.20

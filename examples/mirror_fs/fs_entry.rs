@@ -19,12 +19,7 @@ pub struct FSEntry {
 impl FSEntry {
     /// Creates a new file system entry
     pub fn new(name: Vec<Symbol>, fsmeta: fattr3) -> Self {
-        Self {
-            name,
-            fsmeta,
-            children_meta: fsmeta,
-            children: None,
-        }
+        Self { name, fsmeta, children_meta: fsmeta, children: None }
     }
 
     /// Checks if the entry is a directory

@@ -36,10 +36,7 @@ impl Default for DemoFS {
             ),
         ];
 
-        DemoFS {
-            fs: Mutex::new(entries),
-            rootdir: 1,
-        }
+        DemoFS { fs: Mutex::new(entries), rootdir: 1 }
     }
 }
 
@@ -97,12 +94,7 @@ impl vfs::NFSFileSystem for DemoFS {
         {
             let mut fs = self.fs.lock().unwrap();
             newid = fs.len() as nfs3::fileid3;
-            fs.push(make_file(
-                std::str::from_utf8(filename).unwrap(),
-                newid,
-                dirid,
-                "".as_bytes(),
-            ));
+            fs.push(make_file(std::str::from_utf8(filename).unwrap(), newid, dirid, "".as_bytes()));
             if let FSContents::Directory(dir) = &mut fs[dirid as usize].contents {
                 dir.push(newid);
             }
@@ -127,9 +119,7 @@ impl vfs::NFSFileSystem for DemoFS {
         filename: &nfs3::filename3,
     ) -> Result<nfs3::fileid3, nfs3::nfsstat3> {
         let fs = self.fs.lock().unwrap();
-        let entry = fs
-            .get(dirid as usize)
-            .ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?;
+        let entry = fs.get(dirid as usize).ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?;
         if let FSContents::File(_) = entry.contents {
             return Err(nfs3::nfsstat3::NFS3ERR_NOTDIR);
         } else if let FSContents::Directory(dir) = &entry.contents {
@@ -167,18 +157,14 @@ impl vfs::NFSFileSystem for DemoFS {
         setattr: nfs3::sattr3,
     ) -> Result<nfs3::fattr3, nfs3::nfsstat3> {
         let mut fs = self.fs.lock().unwrap();
-        let entry = fs
-            .get_mut(id as usize)
-            .ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?;
+        let entry = fs.get_mut(id as usize).ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?;
         match setattr.atime {
             nfs3::set_atime::DONT_CHANGE => {}
             nfs3::set_atime::SET_TO_CLIENT_TIME(c) => {
                 entry.attr.atime = c;
             }
             nfs3::set_atime::SET_TO_SERVER_TIME => {
-                let d = SystemTime::now()
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .unwrap();
+                let d = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap();
                 entry.attr.atime.seconds = d.as_secs() as u32;
                 entry.attr.atime.nseconds = d.subsec_nanos();
             }
@@ -189,9 +175,7 @@ impl vfs::NFSFileSystem for DemoFS {
                 entry.attr.mtime = c;
             }
             nfs3::set_mtime::SET_TO_SERVER_TIME => {
-                let d = SystemTime::now()
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .unwrap();
+                let d = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap();
                 entry.attr.mtime.seconds = d.as_secs() as u32;
                 entry.attr.mtime.nseconds = d.subsec_nanos();
             }
@@ -257,16 +241,11 @@ impl vfs::NFSFileSystem for DemoFS {
         max_entries: usize,
     ) -> Result<vfs::ReadDirResult, nfs3::nfsstat3> {
         let fs = self.fs.lock().unwrap();
-        let entry = fs
-            .get(dirid as usize)
-            .ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?;
+        let entry = fs.get(dirid as usize).ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?;
         if let FSContents::File(_) = entry.contents {
             return Err(nfs3::nfsstat3::NFS3ERR_NOTDIR);
         } else if let FSContents::Directory(dir) = &entry.contents {
-            let mut ret = vfs::ReadDirResult {
-                entries: Vec::new(),
-                end: false,
-            };
+            let mut ret = vfs::ReadDirResult { entries: Vec::new(), end: false };
             let mut start_index = 0;
             if start_after > 0 {
                 if let Some(pos) = dir.iter().position(|&r| r == start_after) {
@@ -302,9 +281,7 @@ impl vfs::NFSFileSystem for DemoFS {
         filename: &nfs3::filename3,
     ) -> Result<(), nfs3::nfsstat3> {
         let mut fs = self.fs.lock().unwrap();
-        let dir_entry = fs
-            .get(dirid as usize)
-            .ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?;
+        let dir_entry = fs.get(dirid as usize).ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?;
 
         if let FSContents::File(_) = dir_entry.contents {
             return Err(nfs3::nfsstat3::NFS3ERR_NOTDIR);
@@ -447,22 +424,17 @@ impl vfs::NFSFileSystem for DemoFS {
 
         // Check that a directory with this name doesn't already exist
         if let FSContents::Directory(dir) = &fs[dirid as usize].contents {
-            if dir.iter().any(|&id| {
-                fs.get(id as usize)
-                    .is_some_and(|file| file.name[..] == dirname[..])
-            }) {
+            if dir
+                .iter()
+                .any(|&id| fs.get(id as usize).is_some_and(|file| file.name[..] == dirname[..]))
+            {
                 return Err(nfs3::nfsstat3::NFS3ERR_EXIST);
             }
         }
 
         // Create a new directory
         let newid = fs.len() as nfs3::fileid3;
-        fs.push(make_dir(
-            std::str::from_utf8(dirname).unwrap(),
-            newid,
-            dirid,
-            Vec::new(),
-        ));
+        fs.push(make_dir(std::str::from_utf8(dirname).unwrap(), newid, dirid, Vec::new()));
 
         // Add the new directory to the parent
         if let FSContents::Directory(dir) = &mut fs[dirid as usize].contents {
@@ -470,9 +442,7 @@ impl vfs::NFSFileSystem for DemoFS {
         }
 
         // Update the parent directory's modification time
-        let now = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap();
+        let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap();
         fs[dirid as usize].attr.mtime.seconds = now.as_secs() as u32;
         fs[dirid as usize].attr.mtime.nseconds = now.subsec_nanos();
 
@@ -502,12 +472,7 @@ impl vfs::NFSFileSystem for DemoFS {
 
         // Create a new file but mark its type as a symbolic link
         let newid = fs.len() as nfs3::fileid3;
-        let mut entry = make_file(
-            std::str::from_utf8(linkname).unwrap(),
-            newid,
-            dirid,
-            symlink,
-        );
+        let mut entry = make_file(std::str::from_utf8(linkname).unwrap(), newid, dirid, symlink);
 
         // Change type to symbolic link
         entry.attr.ftype = nfs3::ftype3::NF3LNK;
@@ -520,9 +485,7 @@ impl vfs::NFSFileSystem for DemoFS {
         }
 
         // Update the parent directory's modification time
-        let now = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap();
+        let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap();
         fs[dirid as usize].attr.mtime.seconds = now.as_secs() as u32;
         fs[dirid as usize].attr.mtime.nseconds = now.subsec_nanos();
 
@@ -561,9 +524,7 @@ impl vfs::NFSFileSystem for DemoFS {
         let mut fs = self.fs.lock().unwrap();
 
         // Check that the source file exists
-        let source_file = fs
-            .get(file_id as usize)
-            .ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?;
+        let source_file = fs.get(file_id as usize).ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?;
 
         // Check that the source is a file, not a directory
         if let FSContents::Directory(_) = source_file.contents {
@@ -580,10 +541,10 @@ impl vfs::NFSFileSystem for DemoFS {
 
         // Check if a file with the same name already exists in the target directory
         if let FSContents::Directory(dir) = &fs[target_dir_id as usize].contents {
-            if dir.iter().any(|&id| {
-                fs.get(id as usize)
-                    .is_some_and(|file| file.name[..] == link_name[..])
-            }) {
+            if dir
+                .iter()
+                .any(|&id| fs.get(id as usize).is_some_and(|file| file.name[..] == link_name[..]))
+            {
                 return Err(nfs3::nfsstat3::NFS3ERR_EXIST);
             }
         }
@@ -633,10 +594,10 @@ impl vfs::NFSFileSystem for DemoFS {
 
         // Check if a file with the same name already exists
         if let FSContents::Directory(dir) = &fs[dir_id as usize].contents {
-            if dir.iter().any(|&id| {
-                fs.get(id as usize)
-                    .is_some_and(|file| file.name[..] == name[..])
-            }) {
+            if dir
+                .iter()
+                .any(|&id| fs.get(id as usize).is_some_and(|file| file.name[..] == name[..]))
+            {
                 return Err(nfs3::nfsstat3::NFS3ERR_EXIST);
             }
         }
@@ -652,12 +613,7 @@ impl vfs::NFSFileSystem for DemoFS {
             }
             nfs3::ftype3::NF3DIR => {
                 // Directory
-                entry = make_dir(
-                    std::str::from_utf8(name).unwrap(),
-                    newid,
-                    dir_id,
-                    Vec::new(),
-                );
+                entry = make_dir(std::str::from_utf8(name).unwrap(), newid, dir_id, Vec::new());
             }
             nfs3::ftype3::NF3BLK | nfs3::ftype3::NF3CHR => {
                 // Block or character device
@@ -703,9 +659,7 @@ impl vfs::NFSFileSystem for DemoFS {
         }
 
         // Update the parent directory's modification time
-        let now = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap();
+        let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap();
         fs[dir_id as usize].attr.mtime.seconds = now.as_secs() as u32;
         fs[dir_id as usize].attr.mtime.nseconds = now.subsec_nanos();
 
@@ -727,14 +681,10 @@ impl vfs::NFSFileSystem for DemoFS {
         // and return the attributes.
 
         let mut fs = self.fs.lock().unwrap();
-        let entry = fs
-            .get_mut(id as usize)
-            .ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?;
+        let entry = fs.get_mut(id as usize).ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?;
 
         // Update the file's modification time
-        let now = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap();
+        let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap();
         entry.attr.mtime.seconds = now.as_secs() as u32;
         entry.attr.mtime.nseconds = now.subsec_nanos();
 

@@ -114,18 +114,14 @@ pub async fn handle_nfs(
     context: &rpc::Context,
 ) -> Result<(), anyhow::Error> {
     if call.vers != nfs3::VERSION {
-        warn!(
-            "Invalid NFS Version number {} != {}",
-            call.vers,
-            nfs3::VERSION
-        );
+        warn!("Invalid NFS Version number {} != {}", call.vers, nfs3::VERSION);
         xdr::rpc::prog_mismatch_reply_message(xid, nfs3::VERSION).serialize(output)?;
         return Ok(());
     }
     let prog = nfs3::NFSProgram::from_u32(call.proc).unwrap_or(nfs3::NFSProgram::INVALID);
 
     match prog {
-        nfs3::NFSProgram::NFSPROC3_NULL => nfsproc3_null(xid, input, output)?,
+        nfs3::NFSProgram::NFSPROC3_NULL => nfsproc3_null(xid, output)?,
         nfs3::NFSProgram::NFSPROC3_GETATTR => nfsproc3_getattr(xid, input, output, context).await?,
         nfs3::NFSProgram::NFSPROC3_LOOKUP => nfsproc3_lookup(xid, input, output, context).await?,
         nfs3::NFSProgram::NFSPROC3_READ => nfsproc3_read(xid, input, output, context).await?,
@@ -156,8 +152,7 @@ pub async fn handle_nfs(
         _ => {
             warn!("Unimplemented message {:?}", prog);
             xdr::rpc::proc_unavail_reply_message(xid).serialize(output)?;
-        } /*
-          INVALID*/
+        }
     }
     Ok(())
 }
