@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  nfs-mamont:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nfs-mamont
+    ports:
+      - "2049:2049"
+    volumes:
+      - ./exports:/exports:rw
+      - nfs_data:/app/data
+    environment:
+      - RUST_LOG=info
+      - NFS_PORT=2049
+      - NFS_VERSION=3
+    restart: unless-stopped
+    privileged: true
+    networks:
+      - nfs-network
+
+  # Optional: NFS client for testing
+  nfs-client:
+    image: alpine:latest
+    container_name: nfs-client
+    depends_on:
+      - nfs-mamont
+    command: |
+      sh -c "
+        apk add --no-cache nfs-utils &&
+        mkdir -p /mnt/nfs &&
+        echo 'Waiting for NFS server...' &&
+        sleep 10 &&
+        mount -t nfs -o vers=3,tcp,port=2049 nfs-mamont:/ /mnt/nfs &&
+        echo 'NFS mounted successfully!' &&
+        ls -la /mnt/nfs &&
+        tail -f /dev/null
+      "
+    volumes:
+      - nfs_client_mount:/mnt/nfs
+    networks:
+      - nfs-network
+    profiles:
+      - testing
+
+volumes:
+  nfs_data:
+    driver: local
+  nfs_client_mount:
+    driver: local
+
+networks:
+  nfs-network:
+    driver: bridge 

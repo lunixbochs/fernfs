@@ -7,3 +7,10 @@
 .cursorrules
 .cursor
 .cursorignore
+
+# CI/CD secrets (never commit real secrets)
+*secrets*.yaml
+*secrets*.json
+*secrets*.csv
+.env.local
+.env.production

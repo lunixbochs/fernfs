@@ -157,6 +157,21 @@ This implementation follows these RFCs:
 - [RFC 1832](https://datatracker.ietf.org/doc/html/rfc1832): XDR: External Data Representation Standard
 - [RFC 1833](https://datatracker.ietf.org/doc/html/rfc1833): Binding Protocols for ONC RPC Version 2
 
+## CI/CD & Docker
+
+This project uses GitFlic CI/CD for automated testing, security scanning, and deployment. The pipeline automatically runs on every push and merge request, ensuring code quality and reliability.
+
+**Features**:
+- 🔧 Automated Rust builds and testing
+- 🐳 Docker containerization with multi-stage builds
+- 🔒 Security scanning (dependencies + containers)
+- 📦 Automatic artifact management
+- 🚀 GitFlic container registry integration
+
+**Quick Start**: Upload environment variables and push to `main` - everything else is pre-configured!
+
+For complete setup instructions, see [`CI-CD.md`](CI-CD.md)
+
 ## Contributing
 
 Contributions are welcome! Areas where help is particularly appreciated:
@@ -166,6 +181,14 @@ Contributions are welcome! Areas where help is particularly appreciated:
 - Documentation improvements
 - Platform-specific testing and fixes
 - Example implementations
+
+### Development Workflow
+
+1. Fork the repository
+2. Create a feature branch from `main`
+3. Make your changes with appropriate tests
+4. Ensure all CI/CD checks pass
+5. Submit a merge request
 
 ## License
 
