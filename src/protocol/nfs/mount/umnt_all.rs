@@ -7,7 +7,7 @@
 //!
 //! UMNTALL takes no arguments and returns nothing.
 
-use std::io::{Read, Write};
+use std::io::Write;
 
 use tracing::debug;
 
@@ -23,7 +23,6 @@ use crate::protocol::xdr::{self, mount, XDR};
 /// # Arguments
 ///
 /// * `xid` - RPC transaction ID
-/// * `_input` - Unused input stream
 /// * `output` - Output stream for writing the response
 /// * `context` - Server context containing mount signal information
 ///
@@ -32,7 +31,6 @@ use crate::protocol::xdr::{self, mount, XDR};
 /// * `Result<(), anyhow::Error>` - Ok(()) on success or an error
 pub async fn mountproc3_umnt_all(
     xid: u32,
-    _input: &mut impl Read,
     output: &mut impl Write,
     context: &rpc::Context,
 ) -> Result<(), anyhow::Error> {

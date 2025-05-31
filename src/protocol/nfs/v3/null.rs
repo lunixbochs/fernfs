@@ -8,7 +8,7 @@
 //!
 //! NULL takes no arguments and returns no results, just an RPC response indicating success.
 
-use std::io::{Read, Write};
+use std::io::Write;
 
 use tracing::debug;
 
@@ -18,11 +18,7 @@ use crate::protocol::xdr::{self, XDR};
 ///
 /// NULL is a no-operation RPC call used to check if the server is responding.
 /// Takes no arguments and returns nothing but an RPC success.
-pub fn nfsproc3_null(
-    xid: u32,
-    _: &mut impl Read,
-    output: &mut impl Write,
-) -> Result<(), anyhow::Error> {
+pub fn nfsproc3_null(xid: u32, output: &mut impl Write) -> Result<(), anyhow::Error> {
     debug!("nfsproc3_null({:?}) ", xid);
     let msg = xdr::rpc::make_success_reply(xid);
     debug!("\t{:?} --> {:?}", xid, msg);

@@ -70,18 +70,16 @@ pub async fn handle_mount(
     let prog = mount::MountProgram::from_u32(call.proc).unwrap_or(mount::MountProgram::INVALID);
 
     match prog {
-        mount::MountProgram::MOUNTPROC3_NULL => mountproc3_null(xid, input, output)?,
+        mount::MountProgram::MOUNTPROC3_NULL => mountproc3_null(xid, output)?,
         mount::MountProgram::MOUNTPROC3_MNT => mountproc3_mnt(xid, input, output, context).await?,
         mount::MountProgram::MOUNTPROC3_UMNT => {
             mountproc3_umnt(xid, input, output, context).await?
         }
         mount::MountProgram::MOUNTPROC3_UMNTALL => {
-            mountproc3_umnt_all(xid, input, output, context).await?
+            mountproc3_umnt_all(xid, output, context).await?
         }
-        mount::MountProgram::MOUNTPROC3_EXPORT => mountproc3_export(xid, input, output, context)?,
-        _ => {
-            xdr::rpc::proc_unavail_reply_message(xid).serialize(output)?;
-        }
+        mount::MountProgram::MOUNTPROC3_EXPORT => mountproc3_export(xid, output, context)?,
+        _ => xdr::rpc::proc_unavail_reply_message(xid).serialize(output)?,
     }
     Ok(())
 }

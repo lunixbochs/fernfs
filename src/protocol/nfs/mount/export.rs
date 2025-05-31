@@ -8,7 +8,7 @@
 //! EXPORT takes no arguments and returns a list of exported file systems.
 //! Each export entry includes a directory path and optional access groups list.
 
-use std::io::{Read, Write};
+use std::io::Write;
 
 use tracing::debug;
 
@@ -24,7 +24,6 @@ use crate::protocol::xdr::{self, XDR};
 /// # Arguments
 ///
 /// * `xid` - RPC transaction ID
-/// * `_` - Unused input stream
 /// * `output` - Output stream for writing the response
 /// * `context` - Server context containing export information
 ///
@@ -33,7 +32,6 @@ use crate::protocol::xdr::{self, XDR};
 /// * `Result<(), anyhow::Error>` - Ok(()) on success or an error
 pub fn mountproc3_export(
     xid: u32,
-    _: &mut impl Read,
     output: &mut impl Write,
     context: &rpc::Context,
 ) -> Result<(), anyhow::Error> {

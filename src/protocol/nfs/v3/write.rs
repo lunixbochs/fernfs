@@ -76,11 +76,7 @@ pub async fn nfsproc3_write(
     // get the object attributes before the write
     let pre_obj_attr = match context.vfs.getattr(id).await {
         Ok(v) => {
-            let wccattr = nfs3::wcc_attr {
-                size: v.size,
-                mtime: v.mtime,
-                ctime: v.ctime,
-            };
+            let wccattr = nfs3::wcc_attr { size: v.size, mtime: v.mtime, ctime: v.ctime };
             nfs3::pre_op_attr::attributes(wccattr)
         }
         Err(_) => nfs3::pre_op_attr::Void,

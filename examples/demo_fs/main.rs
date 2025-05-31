@@ -22,8 +22,7 @@ async fn main() {
     println!("Starting NFS server on 0.0.0.0:{HOSTPORT}");
     println!("You can mount it with: sudo mount -o proto=tcp,port={HOSTPORT},mountport={HOSTPORT},nolock,addr=127.0.0.1 127.0.0.1:/ /mnt/nfs");
 
-    let listener = NFSTcpListener::bind(&format!("0.0.0.0:{HOSTPORT}"), fs::DemoFS::default())
-        .await
-        .unwrap();
+    let listener =
+        NFSTcpListener::bind(&format!("0.0.0.0:{HOSTPORT}"), fs::DemoFS::default()).await.unwrap();
     listener.handle_forever().await.unwrap();
 }

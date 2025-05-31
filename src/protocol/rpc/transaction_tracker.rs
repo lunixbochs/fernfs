@@ -35,10 +35,7 @@ impl TransactionTracker {
     /// for the given duration. This helps balance memory usage with the ability
     /// to detect retransmissions over time.
     pub fn new(retention_period: Duration) -> Self {
-        Self {
-            retention_period,
-            transactions: Mutex::new(HashMap::new()),
-        }
+        Self { retention_period, transactions: Mutex::new(HashMap::new()) }
     }
 
     /// Checks if a transaction is a retransmission
@@ -48,10 +45,8 @@ impl TransactionTracker {
     /// Returns true for retransmissions, false for new transactions.
     pub fn is_retransmission(&self, xid: u32, client_addr: &str) -> bool {
         let key = (xid, client_addr.to_string());
-        let mut transactions = self
-            .transactions
-            .lock()
-            .expect("unable to unlock transactions mutex");
+        let mut transactions =
+            self.transactions.lock().expect("unable to unlock transactions mutex");
         housekeeping(&mut transactions, self.retention_period);
         if let std::collections::hash_map::Entry::Vacant(e) = transactions.entry(key) {
             e.insert(TransactionState::InProgress);
@@ -69,10 +64,8 @@ impl TransactionTracker {
     pub fn mark_processed(&self, xid: u32, client_addr: &str) {
         let key = (xid, client_addr.to_string());
         let completion_time = SystemTime::now();
-        let mut transactions = self
-            .transactions
-            .lock()
-            .expect("unable to unlock transactions mutex");
+        let mut transactions =
+            self.transactions.lock().expect("unable to unlock transactions mutex");
         if let Some(tx) = transactions.get_mut(&key) {
             *tx = TransactionState::Completed(completion_time);
         }

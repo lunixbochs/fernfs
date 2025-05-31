@@ -9,7 +9,7 @@
 //! - Measure network latency to the server
 //! - Test RPC transport connectivity
 
-use std::io::{Read, Write};
+use std::io::Write;
 
 use tracing::debug;
 
@@ -23,17 +23,12 @@ use crate::protocol::xdr::{self, XDR};
 /// # Arguments
 ///
 /// * `xid` - RPC transaction ID
-/// * `_` - Unused input stream
 /// * `output` - Output stream for writing the response
 ///
 /// # Returns
 ///
 /// * `Result<(), anyhow::Error>` - Ok(()) on success or an error
-pub fn pmapproc_null(
-    xid: u32,
-    _: &mut impl Read,
-    output: &mut impl Write,
-) -> Result<(), anyhow::Error> {
+pub fn pmapproc_null(xid: u32, output: &mut impl Write) -> Result<(), anyhow::Error> {
     debug!("pmapproc_null({:?}) ", xid);
     // build an RPC reply
     let msg = xdr::rpc::make_success_reply(xid);

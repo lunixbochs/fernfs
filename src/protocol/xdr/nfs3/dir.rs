@@ -120,14 +120,7 @@ pub struct entryplus3 {
     /// File handle for this directory entry
     pub name_handle: post_op_fh3,
 }
-XDRStruct!(
-    entryplus3,
-    fileid,
-    name,
-    cookie,
-    name_attributes,
-    name_handle
-);
+XDRStruct!(entryplus3, fileid, name, cookie, name_attributes, name_handle);
 
 /// Arguments for the READDIRPLUS procedure (procedure 17)
 /// as defined in RFC 1813 section 3.3.17
@@ -146,14 +139,7 @@ pub struct READDIRPLUS3args {
     /// Maximum number of bytes of attribute information to return
     pub maxcount: count3,
 }
-XDRStruct!(
-    READDIRPLUS3args,
-    dir,
-    cookie,
-    cookieverf,
-    dircount,
-    maxcount
-);
+XDRStruct!(READDIRPLUS3args, dir, cookie, cookieverf, dircount, maxcount);
 
 /// Arguments for the MKNOD procedure (procedure 11)
 /// as defined in RFC 1813 section 3.3.11

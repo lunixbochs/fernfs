@@ -156,10 +156,7 @@ XDRStruct!(opaque_auth, flavor, body);
 
 impl Default for opaque_auth {
     fn default() -> opaque_auth {
-        opaque_auth {
-            flavor: auth_flavor::AUTH_NULL,
-            body: Vec::new(),
-        }
+        opaque_auth { flavor: auth_flavor::AUTH_NULL, body: Vec::new() }
     }
 }
 
@@ -505,10 +502,7 @@ pub fn proc_unavail_reply_message(xid: u32) -> rpc_msg {
         verf: opaque_auth::default(),
         reply_data: accept_body::PROC_UNAVAIL,
     });
-    rpc_msg {
-        xid,
-        body: rpc_body::REPLY(reply),
-    }
+    rpc_msg { xid, body: rpc_body::REPLY(reply) }
 }
 
 /// Creates a reply message indicating that the requested program is not available
@@ -517,10 +511,7 @@ pub fn prog_unavail_reply_message(xid: u32) -> rpc_msg {
         verf: opaque_auth::default(),
         reply_data: accept_body::PROG_UNAVAIL,
     });
-    rpc_msg {
-        xid,
-        body: rpc_body::REPLY(reply),
-    }
+    rpc_msg { xid, body: rpc_body::REPLY(reply) }
 }
 
 /// Creates a reply message indicating a program version mismatch
@@ -532,10 +523,7 @@ pub fn prog_mismatch_reply_message(xid: u32, accepted_ver: u32) -> rpc_msg {
             high: accepted_ver,
         }),
     });
-    rpc_msg {
-        xid,
-        body: rpc_body::REPLY(reply),
-    }
+    rpc_msg { xid, body: rpc_body::REPLY(reply) }
 }
 
 /// Creates a reply message indicating that the arguments could not be decoded
@@ -544,19 +532,13 @@ pub fn garbage_args_reply_message(xid: u32) -> rpc_msg {
         verf: opaque_auth::default(),
         reply_data: accept_body::GARBAGE_ARGS,
     });
-    rpc_msg {
-        xid,
-        body: rpc_body::REPLY(reply),
-    }
+    rpc_msg { xid, body: rpc_body::REPLY(reply) }
 }
 
 /// Creates a reply message indicating an RPC version mismatch
 pub fn rpc_vers_mismatch(xid: u32) -> rpc_msg {
     let reply = reply_body::MSG_DENIED(rejected_reply::RPC_MISMATCH(mismatch_info::default()));
-    rpc_msg {
-        xid,
-        body: rpc_body::REPLY(reply),
-    }
+    rpc_msg { xid, body: rpc_body::REPLY(reply) }
 }
 
 /// Creates a successful reply message with no additional data
@@ -565,8 +547,5 @@ pub fn make_success_reply(xid: u32) -> rpc_msg {
         verf: opaque_auth::default(),
         reply_data: accept_body::SUCCESS,
     });
-    rpc_msg {
-        xid,
-        body: rpc_body::REPLY(reply),
-    }
+    rpc_msg { xid, body: rpc_body::REPLY(reply) }
 }

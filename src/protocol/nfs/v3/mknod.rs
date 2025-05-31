@@ -78,11 +78,7 @@ pub async fn nfsproc3_mknod(
     // get the object attributes before the operation
     let pre_dir_attr = match context.vfs.getattr(dirid).await {
         Ok(v) => {
-            let wccattr = nfs3::wcc_attr {
-                size: v.size,
-                mtime: v.mtime,
-                ctime: v.ctime,
-            };
+            let wccattr = nfs3::wcc_attr { size: v.size, mtime: v.mtime, ctime: v.ctime };
             nfs3::pre_op_attr::attributes(wccattr)
         }
         Err(_) => nfs3::pre_op_attr::Void,
@@ -94,13 +90,7 @@ pub async fn nfsproc3_mknod(
     // Call VFS mknod method
     match context
         .vfs
-        .mknod(
-            dirid,
-            &args.where_dir.name,
-            args.what.mknod_type,
-            args.what.device.device,
-            &attr,
-        )
+        .mknod(dirid, &args.where_dir.name, args.what.mknod_type, args.what.device.device, &attr)
         .await
     {
         Ok((fid, fattr)) => {
@@ -112,10 +102,7 @@ pub async fn nfsproc3_mknod(
                 Err(_) => nfs3::post_op_attr::Void,
             };
 
-            let wcc_res = nfs3::wcc_data {
-                before: pre_dir_attr,
-                after: post_dir_attr,
-            };
+            let wcc_res = nfs3::wcc_data { before: pre_dir_attr, after: post_dir_attr };
 
             xdr::rpc::make_success_reply(xid).serialize(output)?;
             nfs3::nfsstat3::NFS3_OK.serialize(output)?;
@@ -134,10 +121,7 @@ pub async fn nfsproc3_mknod(
                 Err(_) => nfs3::post_op_attr::Void,
             };
 
-            let wcc_res = nfs3::wcc_data {
-                before: pre_dir_attr,
-                after: post_dir_attr,
-            };
+            let wcc_res = nfs3::wcc_data { before: pre_dir_attr, after: post_dir_attr };
 
             xdr::rpc::make_success_reply(xid).serialize(output)?;
             stat.serialize(output)?;

@@ -77,10 +77,7 @@ pub async fn nfsproc3_lookup(
             dir_attr.serialize(output)?;
         }
         Err(stat) => {
-            debug!(
-                "nfsproc3_lookup error {:?}({:?}) --> {:?}",
-                xid, dirops.name, stat
-            );
+            debug!("nfsproc3_lookup error {:?}({:?}) --> {:?}", xid, dirops.name, stat);
             xdr::rpc::make_success_reply(xid).serialize(output)?;
             stat.serialize(output)?;
             dir_attr.serialize(output)?;

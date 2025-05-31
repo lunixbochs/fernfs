@@ -44,11 +44,7 @@ pub struct NFSTcpListener<T: NFSFileSystem + Send + Sync + 'static> {
 /// Generates a local loopback IP address from a 16-bit host number
 /// Used for creating multiple local test addresses in the 127.88.x.y range
 pub fn generate_host_ip(hostnum: u16) -> String {
-    format!(
-        "127.88.{}.{}",
-        ((hostnum >> 8) & 0xFF) as u8,
-        (hostnum & 0xFF) as u8
-    )
+    format!("127.88.{}.{}", ((hostnum >> 8) & 0xFF) as u8, (hostnum & 0xFF) as u8)
 }
 
 /// Processes an established TCP socket connection from an NFS client
@@ -180,47 +176,28 @@ impl<T: NFSFileSystem + Send + Sync + 'static> NFSTcpListener<T> {
     /// A Result containing either the new NFSTcpListener or an IO error
     pub async fn bind(ipstr: &str, fs: T) -> io::Result<NFSTcpListener<T>> {
         let (ip, port) = ipstr.split_once(':').ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::AddrNotAvailable,
-                "IP Address must be of form ip:port",
-            )
+            io::Error::new(io::ErrorKind::AddrNotAvailable, "IP Address must be of form ip:port")
         })?;
         let port = port.parse::<u16>().map_err(|_| {
-            io::Error::new(
-                io::ErrorKind::AddrNotAvailable,
-                "Port not in range 0..=65535",
-            )
+            io::Error::new(io::ErrorKind::AddrNotAvailable, "Port not in range 0..=65535")
         })?;
-
         let arcfs: Arc<T> = Arc::new(fs);
 
-        if ip == "auto" {
-            let mut num_tries_left = 32;
-
-            for try_ip in 1u16.. {
-                let ip = generate_host_ip(try_ip);
-
-                let result = NFSTcpListener::bind_internal(&ip, port, arcfs.clone()).await;
-
-                match &result {
-                    Err(_) => {
-                        if num_tries_left == 0 {
-                            return result;
-                        } else {
-                            num_tries_left -= 1;
-                            continue;
-                        }
-                    }
-                    Ok(_) => {
-                        return result;
-                    }
-                }
-            }
-            unreachable!(); // Does not detect automatically that loop above never terminates.
-        } else {
-            // Otherwise, try this.
-            NFSTcpListener::bind_internal(ip, port, arcfs).await
+        if ip != "auto" {
+            return NFSTcpListener::bind_internal(ip, port, arcfs).await;
         }
+
+        const NUM_TRIES: u16 = 32;
+        for try_ip in 1..=NUM_TRIES {
+            let ip = generate_host_ip(try_ip);
+            let result = NFSTcpListener::bind_internal(&ip, port, arcfs.clone()).await;
+
+            if result.is_ok() {
+                return result;
+            }
+        }
+
+        Err(io::Error::other("Can't bind automatically"))
     }
 
     /// Internal method to bind the TCP listener to a specific IP and port
@@ -261,10 +238,7 @@ impl<T: NFSFileSystem + Send + Sync + 'static> NFSTcpListener<T> {
     pub fn with_export_name<S: AsRef<str>>(&mut self, export_name: S) {
         self.export_name = Arc::new(format!(
             "/{}",
-            export_name
-                .as_ref()
-                .trim_end_matches('/')
-                .trim_start_matches('/')
+            export_name.as_ref().trim_end_matches('/').trim_start_matches('/')
         ))
     }
 }

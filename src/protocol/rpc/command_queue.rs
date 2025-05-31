@@ -21,10 +21,7 @@ pub struct ResponseBuffer {
 impl ResponseBuffer {
     /// Creates a new response buffer with pre-allocated capacity
     pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            buffer: Vec::with_capacity(capacity),
-            has_content: false,
-        }
+        Self { buffer: Vec::with_capacity(capacity), has_content: false }
     }
 
     /// Gets the internal buffer for writing

@@ -89,46 +89,28 @@ impl FSMap {
 
     /// Finds an entry by its file ID
     pub fn find_entry(&self, id: nfs3::fileid3) -> NFSResult<FSEntry> {
-        Ok(self
-            .id_to_path
-            .get(&id)
-            .ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?
-            .clone())
+        Ok(self.id_to_path.get(&id).ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?.clone())
     }
 
     /// Finds a mutable entry by its file ID
     pub fn find_entry_mut(&mut self, id: nfs3::fileid3) -> NFSResult<&mut FSEntry> {
-        self.id_to_path
-            .get_mut(&id)
-            .ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)
+        self.id_to_path.get_mut(&id).ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)
     }
 
     /// Finds a child entry by its parent ID and filename
     pub async fn find_child(&self, id: nfs3::fileid3, filename: &[u8]) -> NFSResult<nfs3::fileid3> {
-        let mut name = self
-            .id_to_path
-            .get(&id)
-            .ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?
-            .name
-            .clone();
+        let mut name = self.id_to_path.get(&id).ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?.name.clone();
         name.push(
             self.intern
                 .check_interned(OsStr::from_bytes(filename))
                 .ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?,
         );
-        Ok(*self
-            .path_to_id
-            .get(&name)
-            .ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?)
+        Ok(*self.path_to_id.get(&name).ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?)
     }
 
     /// Refreshes an entry by checking if it still exists and updating its metadata
     pub async fn refresh_entry(&mut self, id: nfs3::fileid3) -> NFSResult<RefreshResult> {
-        let entry = self
-            .id_to_path
-            .get(&id)
-            .ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?
-            .clone();
+        let entry = self.id_to_path.get(&id).ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?.clone();
         let path = self.sym_to_path(&entry.name).await;
 
         if !exists_no_traverse(&path) {
@@ -137,9 +119,7 @@ impl FSMap {
             return Ok(RefreshResult::Delete);
         }
 
-        let meta = fs::symlink_metadata(&path)
-            .await
-            .map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
+        let meta = fs::symlink_metadata(&path).await.map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
         let meta = metadata_to_fattr3(id, &meta);
         if !fattr3_differ(&meta, &entry.fsmeta) {
             return Ok(RefreshResult::Noop);
@@ -150,14 +130,8 @@ impl FSMap {
             // if the file type changed ex: file->dir or dir->file
             // really the entire file has been replaced.
             // we expire the entire id
-            debug!(
-                "File Type Mismatch FT {:?} : {:?} vs {:?}",
-                id, entry.fsmeta.ftype, meta.ftype
-            );
-            debug!(
-                "File Type Mismatch META {:?} : {:?} vs {:?}",
-                id, entry.fsmeta, meta
-            );
+            debug!("File Type Mismatch FT {:?} : {:?} vs {:?}", id, entry.fsmeta.ftype, meta.ftype);
+            debug!("File Type Mismatch META {:?} : {:?} vs {:?}", id, entry.fsmeta, meta);
             self.delete_entry(id);
             debug!("Deleting entry B {:?}: {:?}. Ent: {:?}", id, path, entry);
             return Ok(RefreshResult::Delete);
@@ -172,11 +146,7 @@ impl FSMap {
 
     /// Refreshes the directory listing for a given directory ID
     pub async fn refresh_dir_list(&mut self, id: nfs3::fileid3) -> NFSResult<()> {
-        let entry = self
-            .id_to_path
-            .get(&id)
-            .ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?
-            .clone();
+        let entry = self.id_to_path.get(&id).ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?.clone();
 
         // if there are children and the metadata did not change
         if entry.children.is_some() && !fattr3_differ(&entry.children_meta, &entry.fsmeta) {
@@ -193,10 +163,8 @@ impl FSMap {
         debug!("Relisting entry {:?}: {:?}. Ent: {:?}", id, path, entry);
 
         if let Ok(mut listing) = fs::read_dir(&path).await {
-            while let Some(entry) = listing
-                .next_entry()
-                .await
-                .map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?
+            while let Some(entry) =
+                listing.next_entry().await.map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?
             {
                 let sym = self.intern.intern(entry.file_name()).unwrap();
                 cur_path.push(sym);
@@ -206,10 +174,8 @@ impl FSMap {
                 cur_path.pop();
             }
 
-            self.id_to_path
-                .get_mut(&id)
-                .ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?
-                .children = Some(BTreeSet::from_iter(new_children.into_iter()));
+            self.id_to_path.get_mut(&id).ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?.children =
+                Some(BTreeSet::from_iter(new_children.into_iter()));
         }
 
         Ok(())

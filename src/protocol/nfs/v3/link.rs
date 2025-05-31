@@ -85,11 +85,7 @@ pub async fn nfsproc3_link(
     // Get the directory attributes before the operation
     let pre_dir_attr = match context.vfs.getattr(dirid).await {
         Ok(v) => {
-            let wccattr = nfs3::wcc_attr {
-                size: v.size,
-                mtime: v.mtime,
-                ctime: v.ctime,
-            };
+            let wccattr = nfs3::wcc_attr { size: v.size, mtime: v.mtime, ctime: v.ctime };
             nfs3::pre_op_attr::attributes(wccattr)
         }
         Err(_) => nfs3::pre_op_attr::Void,
@@ -107,10 +103,7 @@ pub async fn nfsproc3_link(
                 Err(_) => nfs3::post_op_attr::Void,
             };
 
-            let wcc_res = nfs3::wcc_data {
-                before: pre_dir_attr,
-                after: post_dir_attr,
-            };
+            let wcc_res = nfs3::wcc_data { before: pre_dir_attr, after: post_dir_attr };
 
             debug!("nfsproc3_link success");
             xdr::rpc::make_success_reply(xid).serialize(output)?;
@@ -131,10 +124,7 @@ pub async fn nfsproc3_link(
                 Err(_) => nfs3::post_op_attr::Void,
             };
 
-            let wcc_res = nfs3::wcc_data {
-                before: pre_dir_attr,
-                after: post_dir_attr,
-            };
+            let wcc_res = nfs3::wcc_data { before: pre_dir_attr, after: post_dir_attr };
 
             debug!("nfsproc3_link failed: {:?}", stat);
             xdr::rpc::make_success_reply(xid).serialize(output)?;

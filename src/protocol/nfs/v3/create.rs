@@ -82,11 +82,7 @@ pub async fn nfsproc3_create(
     // get the object attributes before the write
     let pre_dir_attr = match context.vfs.getattr(dirid).await {
         Ok(v) => {
-            let wccattr = nfs3::wcc_attr {
-                size: v.size,
-                mtime: v.mtime,
-                ctime: v.ctime,
-            };
+            let wccattr = nfs3::wcc_attr { size: v.size, mtime: v.mtime, ctime: v.ctime };
             nfs3::pre_op_attr::attributes(wccattr)
         }
         Err(stat) => {
@@ -118,11 +114,7 @@ pub async fn nfsproc3_create(
 
                 xdr::rpc::make_success_reply(xid).serialize(output)?;
                 nfs3::nfsstat3::NFS3ERR_EXIST.serialize(output)?;
-                nfs3::wcc_data {
-                    before: pre_dir_attr,
-                    after: post_dir_attr,
-                }
-                .serialize(output)?;
+                nfs3::wcc_data { before: pre_dir_attr, after: post_dir_attr }.serialize(output)?;
                 return Ok(());
             }
         }
@@ -141,10 +133,7 @@ pub async fn nfsproc3_create(
         postopattr = nfs3::post_op_attr::Void;
     } else {
         // create!
-        let res = context
-            .vfs
-            .create(dirid, &dirops.name, target_attributes)
-            .await;
+        let res = context.vfs.create(dirid, &dirops.name, target_attributes).await;
         fid = res.map(|x| x.0);
         postopattr = if let Ok((_, fattr)) = res {
             nfs3::post_op_attr::attributes(fattr)
@@ -158,10 +147,7 @@ pub async fn nfsproc3_create(
         Ok(v) => nfs3::post_op_attr::attributes(v),
         Err(_) => nfs3::post_op_attr::Void,
     };
-    let wcc_res = nfs3::wcc_data {
-        before: pre_dir_attr,
-        after: post_dir_attr,
-    };
+    let wcc_res = nfs3::wcc_data { before: pre_dir_attr, after: post_dir_attr };
 
     match fid {
         Ok(fid) => {
