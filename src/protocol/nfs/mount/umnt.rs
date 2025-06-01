@@ -1,11 +1,6 @@
 //! Implementation of the UMNT procedure (procedure 3) for MOUNT version 3 protocol
-//! as defined in RFC 1813 Appendix I section I.4.3.
-//!
-//! The UMNT procedure removes a mount point that was previously established with the MNT procedure.
-//! If the client is finished with a file system, it should use this procedure to notify the server.
-//! This procedure is typically used during client shutdown or when a file system is unmounted.
-//!
-//! UMNT takes a directory path and returns nothing.
+//! as defined in RFC 1813 section 5.2.3
+//! https://datatracker.ietf.org/doc/html/rfc1813#section-5.2.3
 
 use std::io::{Read, Write};
 
@@ -14,11 +9,13 @@ use tracing::debug;
 use crate::protocol::rpc;
 use crate::protocol::xdr::{self, mount, XDR};
 
-/// Handles MOUNT protocol UMNT procedure (procedure 3)
+/// Handles MOUNTPROC3_UMNT procedure.
 ///
-/// UMNT removes a mount for the specified path.
-/// Takes a directory path to unmount from the client.
-/// Sends unmount notification signal if configured.
+/// Function removes the mount entry from the mount list for
+/// the requested diretory.
+///
+/// TODO: Currently directory path is not used and only single
+/// mount point is removed. Need to extend functionality.
 ///
 /// # Arguments
 ///

@@ -1,28 +1,5 @@
-//! MOUNT protocol implementation for NFS version 3 as specified in RFC 1813 Appendix I.
-//!
-//! The MOUNT protocol is used by NFS clients to:
-//! - Obtain the initial file handle for a file system exported by the server
-//! - Get a list of available exports from the server
-//! - Notify the server when a mounted file system is no longer in use
-//!
-//! This module implements all 6 procedures defined in the MOUNT version 3 protocol:
-//!
-//! 1. NULL - Do nothing (ping server)
-//! 2. MNT - Mount a file system and get its root file handle
-//! 3. DUMP - List all mounted file systems (not implemented)
-//! 4. UMNT - Unmount a file system
-//! 5. UMNTALL - Unmount all file systems
-//! 6. EXPORT - List available exports
-//!
-//! The MOUNT protocol serves several important purposes in the NFS ecosystem:
-//! - Provides initial file system access through authenticated file handles
-//! - Enables servers to track which clients have mounted their file systems
-//! - Allows for graceful unmounting notification to release server resources
-//! - Supports discovery of all available file systems through the EXPORT procedure
-//!
-//! RFC 1813 Appendix I defines the MOUNT protocol as an essential companion
-//! to the main NFS protocol. It is typically used during the client's initialization
-//! sequence before any NFS operations can occur.
+//! MOUNT protocol implementation for NFS version 3 as specified in RFC 1813 section 5.0.
+//! https://datatracker.ietf.org/doc/html/rfc1813#section-5.0
 
 use std::io::{Read, Write};
 
@@ -43,11 +20,9 @@ use null::mountproc3_null;
 use umnt::mountproc3_umnt;
 use umnt_all::mountproc3_umnt_all;
 
-/// Main handler for MOUNT protocol
+/// Main handler for MOUNT procedures of version 3 protocol.
 ///
-/// Dispatches MOUNT protocol RPC calls to appropriate procedure handlers.
-/// Provides operations for mounting, unmounting and export listing.
-/// Used by clients to obtain initial file handles for file system access.
+/// TODO: MOUNTPROC3_DUMP function is not implemented.
 ///
 /// # Arguments
 ///

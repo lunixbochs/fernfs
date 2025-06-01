@@ -1,8 +1,6 @@
 //! Implementation of the NULL procedure (procedure 0) for MOUNT version 3 protocol
-//! as defined in RFC 1813 Appendix I section I.4.1.
-//!
-//! The NULL procedure does no work. It is available to allow server response testing
-//! and timing. It has no arguments and returns nothing.
+//! as defined in RFC 1813 section 5.2.0
+//! https://datatracker.ietf.org/doc/html/rfc1813#section-5.2.0
 
 use std::io::Write;
 
@@ -10,10 +8,10 @@ use tracing::debug;
 
 use crate::protocol::xdr::{self, XDR};
 
-/// Handles MOUNT protocol NULL procedure (procedure 0)
+/// Handles MOUNTPROC3_NULL procedure.
 ///
-/// NULL is a no-operation RPC call used to check if the server is responding.
-/// Takes no arguments and returns empty reply with successful status.
+/// Procedure NULL does not do any work. It is made available
+/// to allow server response testing and timing.
 ///
 /// # Arguments
 ///

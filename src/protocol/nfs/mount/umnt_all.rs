@@ -1,11 +1,6 @@
 //! Implementation of the UMNTALL procedure (procedure 4) for MOUNT version 3 protocol
-//! as defined in RFC 1813 Appendix I section I.4.4.
-//!
-//! The UMNTALL procedure removes all mount entries for the client from the server's mount list.
-//! This is usually called when a client is shutting down or when all mounted file systems
-//! need to be unmounted at once.
-//!
-//! UMNTALL takes no arguments and returns nothing.
+//! as defined in RFC 1813 section 5.2.4
+//! https://datatracker.ietf.org/doc/html/rfc1813#section-5.2.4
 
 use std::io::Write;
 
@@ -14,11 +9,13 @@ use tracing::debug;
 use crate::protocol::rpc;
 use crate::protocol::xdr::{self, mount, XDR};
 
-/// Handles MOUNT protocol UMNTALL procedure (procedure 4)
+/// Handles MOUNTPROC3_UMNTALL procedure.
 ///
-/// UMNTALL removes all mounts made by the client.
-/// Takes no arguments and unmounts all client mount points.
-/// Sends unmount notification signal if configured.
+/// Function removes all of the mount entries for
+/// this client previously recorded by calls to MNT.
+///
+/// TODO: Currently we have only one mount point,
+/// if there will be more, we need to extend functionality.
 ///
 /// # Arguments
 ///
