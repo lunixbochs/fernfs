@@ -1,13 +1,6 @@
-//! Implementation of the GETPORT procedure (procedure 3) for PORTMAP protocol
-//! as defined in RFC 5531 (previously RFC 1057 Appendix A).
-//!
-//! The GETPORT procedure maps an RPC program number, version number, and transport protocol
-//! to the port number on which the program is awaiting call requests. It takes a map structure
-//! containing the program number, version number, protocol number, and dummy port and returns
-//! the port number where that combination can be found.
-//!
-//! This procedure is essential for clients to discover the dynamic port numbers assigned to
-//! various RPC services such as NFS, MOUNT, and others.
+//! Implementation of the GETPORT procedure (procedure 3) for port mapper protocol
+//! as defined in RFC 1057 A.2 section.
+//! https://datatracker.ietf.org/doc/rfc1057/
 
 use std::io::{Read, Write};
 
@@ -16,13 +9,15 @@ use tracing::debug;
 use crate::protocol::rpc;
 use crate::protocol::xdr::{self, XDR};
 
-/// Handles PORTMAP protocol GETPORT procedure (procedure 3)
+/// Handles PMAPPROC_GETPORT procedure.
 ///
 /// GETPORT maps an RPC program and version to a TCP/UDP port.
 /// Takes a mapping request with program number, version, protocol and port.
 /// Returns the port number where the requested service can be reached.
 ///
-/// NOTE: Fake function. Always direct back to the same host port
+/// TODO: Function always returns the same host port and ignores the
+/// requested version and protocol (always TCP). In the future, proper program
+/// to port mapping should be implemented.
 ///
 /// # Arguments
 ///

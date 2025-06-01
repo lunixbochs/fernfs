@@ -1,21 +1,5 @@
-//! PORTMAP protocol implementation as specified in RFC 5531 (previously RFC 1057 Appendix A).
-//!
-//! The PORTMAP protocol (also known as Portmapper) is a service that maps RPC program numbers
-//! to network port numbers. It is used by NFS clients to:
-//! - Discover the port numbers for RPC services
-//! - Dynamically locate services when port numbers change
-//! - Register and unregister RPC services
-//!
-//! This module implements the following procedures of the PORTMAP protocol:
-//!
-//! 1. NULL - Do nothing (ping server)
-//! 2. GETPORT - Get port number for an RPC service
-//!
-//! The other procedures (SET, UNSET, DUMP, CALLIT) are not implemented in this version.
-//!
-//! The PORTMAP protocol is essential for the operation of NFS and other RPC-based
-//! services, as it provides the service discovery mechanism that allows clients
-//! to find the appropriate port numbers for each service.
+//! PORTMAP protocol implementation as specified in RFC 1057 A.1 and A.2 sections.
+//! https://datatracker.ietf.org/doc/rfc1057/
 
 use std::io::{Read, Write};
 
@@ -33,9 +17,11 @@ use null::pmapproc_null;
 
 /// Main handler for PORTMAP protocol
 ///
-/// Dispatches PORTMAP protocol RPC calls to appropriate procedure handlers.
-/// Validates protocol version and provides RPC service port mapping.
-/// Used by clients to discover available services and their port numbers.
+/// TODO: Unimplemented procedures:
+/// * PMAPPROC_SET - Register a new port mapping
+/// * PMAPPROC_UNSET - Remove a port mapping
+/// * PMAPPROC_DUMP - List all registered port mappings
+/// * PMAPPROC_CALLIT - Forward a call to another RPC service
 ///
 /// # Arguments
 ///

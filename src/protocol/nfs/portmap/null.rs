@@ -1,13 +1,6 @@
-//! Implementation of the NULL procedure (procedure 0) for PORTMAP protocol
-//! as defined in RFC 5531 (previously RFC 1057 Appendix A).
-//!
-//! The NULL procedure does no work. It is available to allow server response testing
-//! and timing. It has no arguments and returns nothing.
-//!
-//! This simple procedure is often used by clients to:
-//! - Verify that the server is running and responding
-//! - Measure network latency to the server
-//! - Test RPC transport connectivity
+//! Implementation of the NULL procedure (procedure 0) for port mapper protocol
+//! as defined in RFC 1057 A.2 section.
+//! https://datatracker.ietf.org/doc/rfc1057/
 
 use std::io::Write;
 
@@ -15,7 +8,7 @@ use tracing::debug;
 
 use crate::protocol::xdr::{self, XDR};
 
-/// Handles PORTMAP protocol NULL procedure (procedure 0)
+/// Handles PMAPPROC_NULL procedure.
 ///
 /// NULL is a no-operation RPC call used to check if the portmapper is responding.
 /// Takes no arguments and returns empty reply with successful status.
