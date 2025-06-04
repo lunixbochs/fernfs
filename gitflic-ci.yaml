@@ -3,6 +3,7 @@
 image: ubuntu:latest
 
 before_script:
+  - apt update && apt -y install curl build-essential
   - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
   - . "$HOME/.cargo/env"
   - rustup default stable
