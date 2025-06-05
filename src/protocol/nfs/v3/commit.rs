@@ -76,7 +76,7 @@ pub async fn nfsproc3_commit(
 
             let res = nfs3::file::COMMIT3resok {
                 file_wcc: nfs3::wcc_data { before: pre_obj_attr, after: post_obj_attr },
-                verf: context.vfs.serverid(),
+                verf: context.vfs.server_id(),
             };
 
             debug!("nfsproc3_commit success");

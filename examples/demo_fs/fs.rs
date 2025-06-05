@@ -17,6 +17,7 @@ pub struct DemoFS {
     fs: Mutex<Vec<FSEntry>>,
     /// File ID of the root directory
     rootdir: nfs3::fileid3,
+    generation: u64,
 }
 
 impl Default for DemoFS {
@@ -36,7 +37,8 @@ impl Default for DemoFS {
             ),
         ];
 
-        DemoFS { fs: Mutex::new(entries), rootdir: 1 }
+        let now = SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis();
+        DemoFS { fs: Mutex::new(entries), rootdir: 1, generation: now as u64 }
     }
 }
 
@@ -46,6 +48,10 @@ impl Default for DemoFS {
 /// Provides all required NFS operations for the demo file system.
 #[async_trait]
 impl vfs::NFSFileSystem for DemoFS {
+    fn generation(&self) -> u64 {
+        self.generation
+    }
+
     /// Returns the file ID of the root directory.
     fn root_dir(&self) -> nfs3::fileid3 {
         self.rootdir

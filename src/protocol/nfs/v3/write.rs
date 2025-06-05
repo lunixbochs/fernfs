@@ -91,7 +91,7 @@ pub async fn nfsproc3_write(
                 },
                 count: args.count,
                 committed: nfs3::file::stable_how::FILE_SYNC,
-                verf: context.vfs.serverid(),
+                verf: context.vfs.server_id(),
             };
             xdr::rpc::make_success_reply(xid).serialize(output)?;
             nfs3::nfsstat3::NFS3_OK.serialize(output)?;

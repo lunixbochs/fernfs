@@ -3,6 +3,7 @@ use std::io::SeekFrom;
 use std::ops::Bound;
 use std::os::unix::ffi::OsStrExt;
 use std::path::PathBuf;
+use std::time::SystemTime;
 
 use async_trait::async_trait;
 use tokio::fs::{self, File, OpenOptions};
@@ -22,12 +23,14 @@ use crate::fs_map::FSMap;
 pub struct MirrorFS {
     /// The file system map that tracks files and directories
     fsmap: tokio::sync::Mutex<FSMap>,
+    generation: u64,
 }
 
 impl MirrorFS {
     /// Creates a new mirror file system with the given root path
     pub fn new(root: PathBuf) -> Self {
-        Self { fsmap: tokio::sync::Mutex::new(FSMap::new(root)) }
+        let now = SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis();
+        Self { fsmap: tokio::sync::Mutex::new(FSMap::new(root)), generation: now as u64 }
     }
 
     /// Creates a file system object in a given directory and of a given type
@@ -97,6 +100,10 @@ impl MirrorFS {
 
 #[async_trait]
 impl vfs::NFSFileSystem for MirrorFS {
+    fn generation(&self) -> u64 {
+        self.generation
+    }
+
     /// Returns the root directory file ID
     fn root_dir(&self) -> nfs3::fileid3 {
         0
