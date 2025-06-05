@@ -19,8 +19,6 @@
 //! - File handle management that detects stale handles after server restarts
 
 use std::cmp::Ordering;
-use std::sync::Once;
-use std::time::SystemTime;
 
 use async_trait::async_trait;
 
@@ -87,27 +85,6 @@ impl ReadDirSimpleResult {
     }
 }
 
-/// Server generation number used to detect stale file handles
-///
-/// This value is initialized once at server startup and included in all file handles
-/// to detect stale handles after server restart.
-static mut GENERATION_NUMBER: u64 = 0;
-static GENERATION_NUMBER_INIT: Once = Once::new();
-
-/// Gets the server generation number, initializing it on first call
-///
-/// The generation number is based on the server startup time and is used to detect
-/// stale file handles from previous server instances.
-fn get_generation_number() -> u64 {
-    unsafe {
-        GENERATION_NUMBER_INIT.call_once(|| {
-            GENERATION_NUMBER =
-                SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64;
-        });
-        GENERATION_NUMBER
-    }
-}
-
 /// Defines the access capabilities supported by a file system implementation
 pub enum Capabilities {
     /// File system supports read operations only
@@ -146,6 +123,12 @@ pub enum Capabilities {
 ///
 #[async_trait]
 pub trait NFSFileSystem: Sync {
+    /// Gets the server generation number, initializing it on first call
+    ///
+    /// The generation number is based on the server startup time and is used to detect
+    /// stale file handles from previous server instances.
+    fn generation(&self) -> u64;
+
     /// Returns the set of capabilities supported by this file system implementation
     ///
     /// This determines whether write operations are allowed on the file system.
@@ -517,7 +500,7 @@ pub trait NFSFileSystem: Sync {
     /// # Returns
     /// * `nfs_fh3` - The opaque NFS file handle
     fn id_to_fh(&self, id: nfs3::fileid3) -> nfs3::nfs_fh3 {
-        let gennum = get_generation_number();
+        let gennum = self.generation();
         let mut ret: Vec<u8> = Vec::new();
         ret.extend_from_slice(&gennum.to_le_bytes());
         ret.extend_from_slice(&id.to_le_bytes());
@@ -542,7 +525,7 @@ pub trait NFSFileSystem: Sync {
         }
         let gen = u64::from_le_bytes(id.data[0..8].try_into().unwrap());
         let id = u64::from_le_bytes(id.data[8..16].try_into().unwrap());
-        let gennum = get_generation_number();
+        let gennum = self.generation();
         match gen.cmp(&gennum) {
             Ordering::Less => Err(nfs3::nfsstat3::NFS3ERR_STALE),
             Ordering::Greater => Err(nfs3::nfsstat3::NFS3ERR_BADHANDLE),
@@ -581,8 +564,7 @@ pub trait NFSFileSystem: Sync {
     ///
     /// # Returns
     /// * `cookieverf3` - A unique identifier for this server instance
-    fn serverid(&self) -> nfs3::cookieverf3 {
-        let gennum = get_generation_number();
-        gennum.to_le_bytes()
+    fn server_id(&self) -> nfs3::cookieverf3 {
+        self.generation().to_le_bytes()
     }
 }
