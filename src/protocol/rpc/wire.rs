@@ -87,7 +87,12 @@ pub async fn handle_rpc(
 
         let res = {
             if call.prog == nfs3::PROGRAM {
-                nfs::v3::handle_nfs(xid, call, input, output, &context).await
+                if call.vers == nfs3::VERSION {
+                    nfs::v3::handle_nfs(xid, call, input, output, &context).await
+                } else {
+                    error!("NFSv4 not implemented");
+                    Err(anyhow!("NFSv4 protocol error"))
+                }
             } else if call.prog == portmap::PROGRAM {
                 nfs::portmap::handle_portmap(xid, call, input, output, &context)
             } else if call.prog == mount::PROGRAM {
