@@ -1,46 +1,42 @@
-//! The XDR (External Data Representation) module defines data structures and methods
-//! for serializing/deserializing data according to RFC 1832 standard.
+//! XDR is a standard for the description and encoding of data.
+//! It is useful for transferring data between different computer
+//! architectures, and it has been used to communicate data between such
+//! diverse machines as the SUN WORKSTATION*, VAX*, IBM-PC*, and Cray*
 //!
-//! XDR provides machine-independent data representation format,
-//! which is critical for network protocols like NFS.
+//! <https://datatracker.ietf.org/doc/html/rfc450>
 //!
-//! All data structures that require serialization/deserialization
-//! for network transmission must implement the XDR trait.
+//! Its Rust-specific implementation is presented below.
+//! Where appropriate, the standard types of the XDR language have
+//! been replaced by similar types of the Rust language. For example,
+//! the 32-bit `Integer` type was replaced by the `i32`` type, and the
+//! `opaque<>` type was replaced by `[u8]`. All the places where such
+//! a replacement has been carried out have relevant comments.
+//!
+//! Despite the replacement of names, all guarantees for the corresponding
+//! types must be respected.
 
 use std::io::{Read, Write};
 
 use byteorder::BigEndian;
 use byteorder::{ReadBytesExt, WriteBytesExt};
-use num_traits::ToPrimitive;
+use num_traits::{FromPrimitive, ToPrimitive};
 
 pub mod mount;
 pub mod nfs3;
 pub mod portmap;
 pub mod rpc;
+mod utils;
 
-/// Type alias for the standard endianness used in XDR serialization (Big Endian).
+/// XDR assumes big endian encoding.
 pub type XDREndian = BigEndian;
-
-/// The XDR trait defines methods for serializing and deserializing data structures
-/// according to the External Data Representation (XDR) standard defined in RFC 1832.
-///
-/// XDR provides a standard way of representing data in a machine-independent format,
-/// which is critical for network protocols like NFS.
-///
-/// All data structures that need to be serialized to or deserialized from
-/// the network must implement this trait.
-#[allow(clippy::upper_case_acronyms)]
-pub trait XDR: Serialize + Deserialize {}
-
-impl<T: Serialize + Deserialize> XDR for T {}
 
 pub trait Serialize {
     /// Serializes the implementing type to the provided writer.
     ///
-    /// # Arguments
-    /// * `dest` - A mutable reference to any type that implements Write.
+    /// ## Parameters
+    /// * `dest` - Where will the value be serialized to.
     ///
-    /// # Returns
+    /// ## Returns
     /// * `std::io::Result<()>` - Ok(()) on success, or an error if serialization fails.
     fn serialize<W: Write>(&self, dest: &mut W) -> std::io::Result<()>;
 }
@@ -48,14 +44,21 @@ pub trait Serialize {
 pub trait Deserialize {
     /// Deserializes data from the provided reader into the implementing type.
     ///
-    /// # Arguments
-    /// * `src` - A mutable reference to any type that implements Read.
+    /// ## Parameters
+    /// * `src` - From where the value will be deserialized.
     ///
-    /// # Returns
+    /// ## Returns
     /// * `std::io::Result<()>` - Ok(()) on success, or an error if deserialization fails.
     fn deserialize<R: Read>(&mut self, src: &mut R) -> std::io::Result<()>;
 }
 
+/// Deserialization based on the [Default] trait of the type T.
+///
+/// # Parameters
+/// * src - From where the value will be deserialized
+///
+/// # Returns
+/// * `std::io::Result<()>` - Ok(()) on success, or an error if deserialization fails.
 pub fn deserialize<T>(src: &mut impl Read) -> std::io::Result<T>
 where
     T: Deserialize + Default,
@@ -66,70 +69,86 @@ where
     Ok(val)
 }
 
-/// Macro for implementing XDR serialization and deserialization for enumerations.
-///
-/// This macro simplifies implementation of the XDR trait for enum types
-/// by providing standard serialization and deserialization as 32-bit integers.
-#[allow(non_camel_case_types)]
-#[macro_export]
-macro_rules! SerializeEnum {
-    ($t:ident) => {
-        impl Serialize for $t {
-            fn serialize<W: Write>(&self, dest: &mut W) -> std::io::Result<()> {
-                dest.write_u32::<$crate::xdr::XDREndian>(*self as u32)
-            }
-        }
-    };
-}
+/// Marker trait for XDR `enum` type serialization.
+pub trait SerializeEnum: ToPrimitive {}
 
-#[allow(non_camel_case_types)]
-#[macro_export]
-macro_rules! DeserializeEnum {
-    ($t:ident) => {
-        impl Deserialize for $t {
-            fn deserialize<R: Read>(&mut self, src: &mut R) -> std::io::Result<()> {
-                let r: u32 = src.read_u32::<$crate::xdr::XDREndian>()?;
-                if let Some(p) = FromPrimitive::from_u32(r) {
-                    *self = p;
-                    return Ok(());
-                }
-                Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    format!("Invalid value for {}", stringify!($t)),
-                ))
-            }
+/// Enumerations have the same representation as signed integers.
+impl<T: SerializeEnum> Serialize for T {
+    fn serialize<W: Write>(&self, dest: &mut W) -> std::io::Result<()> {
+        if let Some(val) = self.to_i32() {
+            return dest.write_i32::<XDREndian>(val);
         }
-    };
-}
-
-/// XDR implementation for boolean values.
-///
-/// Booleans are serialized as 4-byte big endian integers
-/// where 0 represents false and any non-zero value represents true.
-impl Serialize for bool {
-    fn serialize<R: Write>(&self, dest: &mut R) -> std::io::Result<()> {
-        let val: u32 = *self as u32;
-        dest.write_u32::<XDREndian>(val)
+        Err(utils::invalid_data("Invalid enum value"))
     }
 }
 
+/// Marker trait for XDR `enum` type deserialization.
+pub trait DeserializeEnum: FromPrimitive {}
+
+/// Enumerations have the same representation as signed integers.
+impl<T: DeserializeEnum> Deserialize for T {
+    fn deserialize<R: Read>(&mut self, src: &mut R) -> std::io::Result<()> {
+        let val = src.read_i32::<XDREndian>()?;
+        if let Some(val) = FromPrimitive::from_i32(val) {
+            *self = val;
+            return Ok(());
+        }
+
+        Err(utils::invalid_data("Invalid enum value"))
+    }
+}
+
+/// XDR `bool` type serialization implementation.
+///
+/// ```
+/// bool identifier;
+/// ```
+///
+/// This is equivalent to:
+///
+/// ```
+///  enum { FALSE = 0, TRUE = 1 } identifier;
+/// ```
+///
+/// Thus, the `bool` type is serialized as an `enum`, i.e. in `i32`.
+impl Serialize for bool {
+    fn serialize<R: Write>(&self, dest: &mut R) -> std::io::Result<()> {
+        dest.write_i32::<XDREndian>(if *self { 1 } else { 0 })
+    }
+}
+
+/// XDR `bool` type deserialization implementation.
+///
+/// ```
+/// bool identifier;
+/// ```
+///
+/// This is equivalent to:
+///
+/// ```
+///  enum { FALSE = 0, TRUE = 1 } identifier;
+/// ```
+///
+/// Thus, the `bool` type is deserialized as an enum, i.e. in `i32`.
 impl Deserialize for bool {
     fn deserialize<R: Read>(&mut self, src: &mut R) -> std::io::Result<()> {
-        let val: u32 = src.read_u32::<XDREndian>()?;
-        *self = val > 0;
+        match src.read_i32::<XDREndian>()? {
+            0 => *self = false,
+            1 => *self = true,
+            _ => return Err(utils::invalid_data("Invalid value for bool enum")),
+        }
         Ok(())
     }
 }
 
-/// XDR implementation for 32-bit signed integers.
-///
-/// Integers are serialized as 4-byte big endian values.
+/// XDR `int` type serialization implementation.
 impl Serialize for i32 {
     fn serialize<R: Write>(&self, dest: &mut R) -> std::io::Result<()> {
         dest.write_i32::<XDREndian>(*self)
     }
 }
 
+/// XDR `int` type deserialization implementation.
 impl Deserialize for i32 {
     fn deserialize<R: Read>(&mut self, src: &mut R) -> std::io::Result<()> {
         *self = src.read_i32::<XDREndian>()?;
@@ -137,15 +156,14 @@ impl Deserialize for i32 {
     }
 }
 
-/// XDR implementation for 64-bit signed integers.
-///
-/// 64-bit integers are serialized as 8-byte big endian values.
+/// XDR `hyper` type serialization implementation.
 impl Serialize for i64 {
     fn serialize<R: Write>(&self, dest: &mut R) -> std::io::Result<()> {
         dest.write_i64::<XDREndian>(*self)
     }
 }
 
+/// XDR `hyper` type deserialization implementation.
 impl Deserialize for i64 {
     fn deserialize<R: Read>(&mut self, src: &mut R) -> std::io::Result<()> {
         *self = src.read_i64::<XDREndian>()?;
@@ -153,15 +171,14 @@ impl Deserialize for i64 {
     }
 }
 
-/// XDR implementation for 32-bit unsigned integers.
-///
-/// Unsigned 32-bit integers are serialized as 4-byte big endian values.
+/// XDR `unsigned int` type serialization implementation.
 impl Serialize for u32 {
     fn serialize<R: Write>(&self, dest: &mut R) -> std::io::Result<()> {
         dest.write_u32::<XDREndian>(*self)
     }
 }
 
+/// XDR `unsigned int` type deserialization implementation.
 impl Deserialize for u32 {
     fn deserialize<R: Read>(&mut self, src: &mut R) -> std::io::Result<()> {
         *self = src.read_u32::<XDREndian>()?;
@@ -169,15 +186,14 @@ impl Deserialize for u32 {
     }
 }
 
-/// XDR implementation for 64-bit unsigned integers.
-///
-/// Unsigned 64-bit integers are serialized as 8-byte big endian values.
+/// XDR `unsigned hyper` type serialization implementation.
 impl Serialize for u64 {
     fn serialize<R: Write>(&self, dest: &mut R) -> std::io::Result<()> {
         dest.write_u64::<XDREndian>(*self)
     }
 }
 
+/// XDR `unsigned hyper` type deserialization implementation.
 impl Deserialize for u64 {
     fn deserialize<R: Read>(&mut self, src: &mut R) -> std::io::Result<()> {
         *self = src.read_u64::<XDREndian>()?;
@@ -185,38 +201,85 @@ impl Deserialize for u64 {
     }
 }
 
-/// XDR implementation for fixed-size byte arrays.
+/// XDR `float` type serialization implementation.
+impl Serialize for f32 {
+    fn serialize<R: Write>(&self, dest: &mut R) -> std::io::Result<()> {
+        dest.write_f32::<XDREndian>(*self)
+    }
+}
+
+/// XDR `float` type deserialization implementation.
+impl Deserialize for f32 {
+    fn deserialize<R: Read>(&mut self, src: &mut R) -> std::io::Result<()> {
+        *self = src.read_f32::<XDREndian>()?;
+        Ok(())
+    }
+}
+
+/// XDR `double` type serialization implementation.
+impl Serialize for f64 {
+    fn serialize<R: Write>(&self, dest: &mut R) -> std::io::Result<()> {
+        dest.write_f64::<XDREndian>(*self)
+    }
+}
+
+/// XDR `double` type deserialization implementation.
+impl Deserialize for f64 {
+    fn deserialize<R: Read>(&mut self, src: &mut R) -> std::io::Result<()> {
+        *self = src.read_f64::<XDREndian>()?;
+        Ok(())
+    }
+}
+
+/// XDR Fixed-Length Opaque Data serialization implementation.
 ///
-/// Fixed-size arrays are serialized as their raw bytes without length prefix.
+/// ```
+/// opaque identifier[n];
+/// ```
 impl<const N: usize> Serialize for [u8; N] {
     fn serialize<R: Write>(&self, dest: &mut R) -> std::io::Result<()> {
-        dest.write_all(self)
+        dest.write_all(self)?;
+        utils::write_padding(N, dest)?;
+
+        Ok(())
     }
 }
 
+/// XDR Fixed-Length Opaque Data deserialization implementation.
+///
+/// ```
+/// opaque identifier[n];
+/// ```
 impl<const N: usize> Deserialize for [u8; N] {
     fn deserialize<R: Read>(&mut self, src: &mut R) -> std::io::Result<()> {
-        src.read_exact(self)
+        src.read_exact(self)?;
+        utils::read_padding(N, src)?;
+
+        Ok(())
     }
 }
 
+/// Object lengths in XDR are always serialized as [u32]. This wrapper
+/// type provides a way to serialize the [usize] type common to Rust as [u32].
 #[derive(Default)]
 struct UsizeAsU32(usize);
 
+/// Try to convert [usize] to [u32] and serialize.
 impl Serialize for UsizeAsU32 {
     fn serialize<W: Write>(&self, dest: &mut W) -> std::io::Result<()> {
         let Some(val) = self.0.to_u32() else {
-            return Err(std::io::Error::other("cannot cast `usize` to `u32`"));
+            return Err(utils::invalid_data("cannot cast `usize` to `u32`"));
         };
 
         val.serialize(dest)
     }
 }
 
+/// Try to deserialize [u32] and convert to [usize].
 impl Deserialize for UsizeAsU32 {
     fn deserialize<R: Read>(&mut self, src: &mut R) -> std::io::Result<()> {
         let Some(val) = deserialize::<u32>(src)?.to_usize() else {
-            return Err(std::io::Error::other("cannot cast `u32` to `usize`"));
+            return Err(utils::invalid_data("cannot cast `u32` to `usize`"));
         };
 
         self.0 = val;
@@ -224,34 +287,84 @@ impl Deserialize for UsizeAsU32 {
     }
 }
 
-/// XDR implementation for variable-length byte vectors.
-///
-/// Variable-length data is serialized with a 4-byte length prefix,
-/// followed by the actual data, and padded to a multiple of 4 bytes.
+/// XDR Variable-Length Opaque Data serialization implementation.
 impl Serialize for [u8] {
     fn serialize<R: Write>(&self, dest: &mut R) -> std::io::Result<()> {
         UsizeAsU32(self.len()).serialize(dest)?;
         dest.write_all(self)?;
+        utils::write_padding(self.len(), dest)?;
 
-        // write padding
-        let pad = 4 - self.len() % 4;
-        let zeros: [u8; 4] = [0, 0, 0, 0];
-        if pad > 0 {
-            dest.write_all(&zeros[..pad])?;
-        }
         Ok(())
     }
 }
 
+/// XDR Variable-Length Opaque Data deserialization implementation.
 impl Deserialize for Vec<u8> {
     fn deserialize<R: Read>(&mut self, src: &mut R) -> std::io::Result<()> {
         let length = deserialize::<UsizeAsU32>(src)?.0;
         self.resize(length, 0);
+
         src.read_exact(self)?;
-        // read padding
-        let pad = 4 - length % 4;
-        let mut zeros: [u8; 4] = [0, 0, 0, 0];
-        src.read_exact(&mut zeros[..pad])?;
+        utils::read_padding(length, src)?;
+
+        Ok(())
+    }
+}
+
+/// XDR String serialization implementation.
+impl Serialize for str {
+    fn serialize<R: Write>(&self, dest: &mut R) -> std::io::Result<()> {
+        self.as_bytes().serialize(dest)
+    }
+}
+
+/// XDR String deserialization implementation.
+impl Deserialize for String {
+    fn deserialize<R: Read>(&mut self, src: &mut R) -> std::io::Result<()> {
+        // SAFETY: we clear buffer on every step until verification
+        unsafe {
+            if let err @ Err(_) = self.as_mut_vec().deserialize(src) {
+                self.clear();
+                return err;
+            }
+
+            // XDR String is always ascii
+            if !self.as_mut_vec().is_ascii() {
+                self.clear();
+                return Err(utils::invalid_data("Not ASCII string"));
+            }
+        };
+
+        Ok(())
+    }
+}
+
+/// XDR Fixed-Length Array serialization implementation.
+///
+/// ```
+/// opaque identifier[n];
+/// ```
+impl<const N: usize, T: Serialize> Serialize for [T; N] {
+    fn serialize<R: Write>(&self, dest: &mut R) -> std::io::Result<()> {
+        for i in self {
+            i.serialize(dest)?;
+        }
+
+        Ok(())
+    }
+}
+
+/// XDR Fixed-Length Array deserialization implementation.
+///
+/// ```
+/// opaque identifier[n];
+/// ```
+impl<const N: usize, T: Deserialize> Deserialize for [T; N] {
+    fn deserialize<R: Read>(&mut self, src: &mut R) -> std::io::Result<()> {
+        for i in self {
+            i.deserialize(src)?
+        }
+
         Ok(())
     }
 }
@@ -259,7 +372,7 @@ impl Deserialize for Vec<u8> {
 /// XDR implementation for vectors of 32-bit unsigned integers.
 ///
 /// Serialized as a 4-byte length prefix followed by that many 4-byte integers.
-impl Serialize for [u32] {
+impl<T: Serialize> Serialize for [T] {
     fn serialize<R: Write>(&self, dest: &mut R) -> std::io::Result<()> {
         UsizeAsU32(self.len()).serialize(dest)?;
         for i in self {
@@ -270,75 +383,10 @@ impl Serialize for [u32] {
     }
 }
 
-impl Deserialize for Vec<u32> {
+impl<T: Deserialize + Clone + Default> Deserialize for Vec<T> {
     fn deserialize<R: Read>(&mut self, src: &mut R) -> std::io::Result<()> {
         let length = deserialize::<UsizeAsU32>(src)?.0;
-        self.resize(length, 0);
-        for i in self {
-            i.deserialize(src)?;
-        }
-        Ok(())
-    }
-}
-
-impl Serialize for str {
-    fn serialize<R: Write>(&self, dest: &mut R) -> std::io::Result<()> {
-        self.as_bytes().serialize(dest)
-    }
-}
-
-impl Deserialize for String {
-    fn deserialize<R: Read>(&mut self, src: &mut R) -> std::io::Result<()> {
-        use std::str::from_utf8;
-
-        // Safety: we clear buffer on every step until verification
-        unsafe {
-            if let err @ Err(_) = self.as_mut_vec().deserialize(src) {
-                self.clear();
-                return err;
-            }
-
-            if from_utf8(self.as_mut_vec()).is_err() {
-                self.clear();
-                return Err(std::io::Error::other("cannot construct string"));
-            }
-        };
-
-        Ok(())
-    }
-}
-
-impl Serialize for char {
-    fn serialize<W: Write>(&self, dest: &mut W) -> std::io::Result<()> {
-        (*self as u32).serialize(dest)
-    }
-}
-
-impl Deserialize for char {
-    fn deserialize<R: Read>(&mut self, src: &mut R) -> std::io::Result<()> {
-        let u32 = deserialize::<u32>(src)?;
-        let Some(char) = std::char::from_u32(u32) else {
-            return Err(std::io::Error::other("cannot convert `u32` to `char`"));
-        };
-        *self = char;
-        Ok(())
-    }
-}
-
-impl Serialize for [char] {
-    fn serialize<W: Write>(&self, dest: &mut W) -> std::io::Result<()> {
-        UsizeAsU32(self.len()).serialize(dest)?;
-        for i in self {
-            i.serialize(dest)?;
-        }
-        Ok(())
-    }
-}
-
-impl Deserialize for Vec<char> {
-    fn deserialize<R: Read>(&mut self, src: &mut R) -> std::io::Result<()> {
-        let length = deserialize::<UsizeAsU32>(src)?.0;
-        self.resize(length, Default::default());
+        self.resize(length, T::default()); // TODO(test)
         for i in self {
             i.deserialize(src)?;
         }
@@ -382,68 +430,34 @@ macro_rules! DeserializeStruct {
     };
 }
 
-/// Macro for implementing XDR serialization and deserialization for boolean unions.
-///
-/// This is specialized for XDR unions where a boolean discriminant selects between
-/// two cases: a void (empty) case and a case containing a value of some type.
-///
-/// # Example
-/// ```
-/// enum pre_op_attr {
-///     Void,
-///     attributes(wcc_attr)
-/// }
-/// DeserializeBoolUnion!(pre_op_attr, attributes, wcc_attr)
-/// ```
-#[allow(non_camel_case_types)]
-#[macro_export]
-macro_rules! SerializeBoolUnion {
-    (
-        $t:ident, $enumcase:ident, $enumtype:ty
-    ) => {
-        impl Serialize for $t {
-            fn serialize<R: Write>(&self, dest: &mut R) -> std::io::Result<()> {
-                match self {
-                    $t::Void => {
-                        false.serialize(dest)?;
-                    }
-                    $t::$enumcase(v) => {
-                        true.serialize(dest)?;
-                        v.serialize(dest)?;
-                    }
-                }
+// XDR Optional-Data serialization implementation.
+impl<T: Serialize> Serialize for Option<T> {
+    fn serialize<W: Write>(&self, dest: &mut W) -> std::io::Result<()> {
+        match self {
+            Some(data) => {
+                true.serialize(dest)?;
+                data.serialize(dest)?;
+
                 Ok(())
             }
+            None => false.serialize(dest),
         }
-    };
+    }
 }
 
-#[allow(non_camel_case_types)]
-#[macro_export]
-macro_rules! DeserializeBoolUnion {
-    (
-        $t:ident, $enumcase:ident, $enumtype:ty
-    ) => {
-        impl Deserialize for $t {
-            fn deserialize<R: Read>(&mut self, src: &mut R) -> std::io::Result<()> {
-                if deserialize::<bool>(src)? {
-                    *self = $t::$enumcase(deserialize::<$enumtype>(src)?);
-                } else {
-                    *self = $t::Void;
-                }
-
-                Ok(())
-            }
+// XDR Optional-Data deserialization implementation.
+impl<T: Deserialize + Default> Deserialize for Option<T> {
+    fn deserialize<R: Read>(&mut self, src: &mut R) -> std::io::Result<()> {
+        if deserialize::<bool>(src)? {
+            *self = Some(deserialize::<T>(src)?);
+        } else {
+            *self = None;
         }
-    };
+
+        Ok(())
+    }
 }
 
 // Re-export public types for use in other modules
-pub use crate::DeserializeBoolUnion;
-pub use crate::SerializeBoolUnion;
-
-pub use crate::DeserializeEnum;
-pub use crate::SerializeEnum;
-
 pub use crate::DeserializeStruct;
 pub use crate::SerializeStruct;

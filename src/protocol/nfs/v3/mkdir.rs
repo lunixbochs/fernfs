@@ -75,7 +75,7 @@ pub async fn nfsproc3_mkdir(
     let pre_dir_attr = match context.vfs.getattr(dirid).await {
         Ok(v) => {
             let wccattr = nfs3::wcc_attr { size: v.size, mtime: v.mtime, ctime: v.ctime };
-            nfs3::pre_op_attr::attributes(wccattr)
+            nfs3::pre_op_attr::Some(wccattr)
         }
         Err(stat) => {
             error!("Cannot stat directory");
@@ -89,10 +89,7 @@ pub async fn nfsproc3_mkdir(
     let res = context.vfs.mkdir(dirid, &args.dirops.name).await;
 
     // Re-read dir attributes for post op attr
-    let post_dir_attr = match context.vfs.getattr(dirid).await {
-        Ok(v) => nfs3::post_op_attr::attributes(v),
-        Err(_) => nfs3::post_op_attr::Void,
-    };
+    let post_dir_attr = context.vfs.getattr(dirid).await.ok();
     let wcc_res = nfs3::wcc_data { before: pre_dir_attr, after: post_dir_attr };
 
     match res {
@@ -102,8 +99,8 @@ pub async fn nfsproc3_mkdir(
             nfs3::nfsstat3::NFS3_OK.serialize(output)?;
             // serialize CREATE3resok
             let fh = context.vfs.id_to_fh(fid);
-            nfs3::post_op_fh3::handle(fh).serialize(output)?;
-            nfs3::post_op_attr::attributes(fattr).serialize(output)?;
+            nfs3::post_op_fh3::Some(fh).serialize(output)?;
+            nfs3::post_op_attr::Some(fattr).serialize(output)?;
             wcc_res.serialize(output)?;
         }
         Err(e) => {

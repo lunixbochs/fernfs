@@ -60,39 +60,39 @@ pub async fn nfsproc3_access(
     if let Err(stat) = id {
         xdr::rpc::make_success_reply(xid).serialize(output)?;
         stat.serialize(output)?;
-        nfs3::post_op_attr::Void.serialize(output)?;
+        nfs3::post_op_attr::None.serialize(output)?;
         return Ok(());
     }
     let id = id.unwrap();
 
     // Get object attributes
     let obj_attr = match context.vfs.getattr(id).await {
-        Ok(v) => nfs3::post_op_attr::attributes(v),
+        Ok(v) => nfs3::post_op_attr::Some(v),
         Err(stat) => {
             // If we can't get attributes, return an error
             xdr::rpc::make_success_reply(xid).serialize(output)?;
             stat.serialize(output)?;
-            nfs3::post_op_attr::Void.serialize(output)?;
+            nfs3::post_op_attr::None.serialize(output)?;
             return Ok(());
         }
     };
 
     // Check if the object exists
-    if let nfs3::post_op_attr::Void = obj_attr {
+    if obj_attr.is_none() {
         xdr::rpc::make_success_reply(xid).serialize(output)?;
         nfs3::nfsstat3::NFS3ERR_NOENT.serialize(output)?;
-        nfs3::post_op_attr::Void.serialize(output)?;
+        nfs3::post_op_attr::None.serialize(output)?;
         return Ok(());
     }
 
     // Extract object attributes
     let attr = match obj_attr {
-        nfs3::post_op_attr::attributes(attr) => attr,
-        _ => {
+        nfs3::post_op_attr::Some(attr) => attr,
+        None => {
             // This should not happen, since we already checked that obj_attr is not Void
             xdr::rpc::make_success_reply(xid).serialize(output)?;
             nfs3::nfsstat3::NFS3ERR_SERVERFAULT.serialize(output)?;
-            nfs3::post_op_attr::Void.serialize(output)?;
+            nfs3::post_op_attr::None.serialize(output)?;
             return Ok(());
         }
     };

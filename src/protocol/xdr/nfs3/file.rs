@@ -20,7 +20,6 @@
 use std::io::{Read, Write};
 
 use num_derive::{FromPrimitive, ToPrimitive};
-use num_traits::cast::FromPrimitive;
 
 use super::*;
 
@@ -112,8 +111,8 @@ pub enum stable_how {
     /// This includes the data and all metadata for this request
     FILE_SYNC = 2,
 }
-SerializeEnum!(stable_how);
-DeserializeEnum!(stable_how);
+impl SerializeEnum for stable_how {}
+impl DeserializeEnum for stable_how {}
 
 /// Arguments for the WRITE procedure (procedure 7) as defined in RFC 1813 section 3.3.7
 /// Used to write data to a regular file

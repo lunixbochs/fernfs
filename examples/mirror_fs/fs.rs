@@ -505,7 +505,7 @@ impl vfs::NFSFileSystem for MirrorFS {
             nfs3::ftype3::NF3CHR => {
                 // Character device
                 let mode = match attrs.mode {
-                    nfs3::set_mode3::mode(m) => m,
+                    nfs3::set_mode3::Some(m) => m,
                     _ => 0o666,
                 };
 
@@ -525,8 +525,8 @@ impl vfs::NFSFileSystem for MirrorFS {
                         .map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
 
                     // Set ownership if provided
-                    if let nfs3::set_uid3::uid(uid) = attrs.uid {
-                        if let nfs3::set_gid3::gid(gid) = attrs.gid {
+                    if let nfs3::set_uid3::Some(uid) = attrs.uid {
+                        if let nfs3::set_gid3::Some(gid) = attrs.gid {
                             std::os::unix::fs::chown(&path, Some(uid), Some(gid))
                                 .map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
                         }
@@ -536,7 +536,7 @@ impl vfs::NFSFileSystem for MirrorFS {
             nfs3::ftype3::NF3BLK => {
                 // Block device
                 let mode = match attrs.mode {
-                    nfs3::set_mode3::mode(m) => m,
+                    nfs3::set_mode3::Some(m) => m,
                     _ => 0o666,
                 };
 
@@ -556,8 +556,8 @@ impl vfs::NFSFileSystem for MirrorFS {
                         .map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
 
                     // Set ownership if provided
-                    if let nfs3::set_uid3::uid(uid) = attrs.uid {
-                        if let nfs3::set_gid3::gid(gid) = attrs.gid {
+                    if let nfs3::set_uid3::Some(uid) = attrs.uid {
+                        if let nfs3::set_gid3::Some(gid) = attrs.gid {
                             std::os::unix::fs::chown(&path, Some(uid), Some(gid))
                                 .map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
                         }
@@ -567,7 +567,7 @@ impl vfs::NFSFileSystem for MirrorFS {
             nfs3::ftype3::NF3FIFO => {
                 // Named pipe (FIFO)
                 let mode = match attrs.mode {
-                    nfs3::set_mode3::mode(m) => m,
+                    nfs3::set_mode3::Some(m) => m,
                     _ => 0o666,
                 };
 
@@ -587,8 +587,8 @@ impl vfs::NFSFileSystem for MirrorFS {
                         .map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
 
                     // Set ownership if provided
-                    if let nfs3::set_uid3::uid(uid) = attrs.uid {
-                        if let nfs3::set_gid3::gid(gid) = attrs.gid {
+                    if let nfs3::set_uid3::Some(uid) = attrs.uid {
+                        if let nfs3::set_gid3::Some(gid) = attrs.gid {
                             std::os::unix::fs::chown(&path, Some(uid), Some(gid))
                                 .map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
                         }
@@ -602,7 +602,7 @@ impl vfs::NFSFileSystem for MirrorFS {
             nfs3::ftype3::NF3SOCK => {
                 // Socket
                 let mode = match attrs.mode {
-                    nfs3::set_mode3::mode(m) => m,
+                    nfs3::set_mode3::Some(m) => m,
                     _ => 0o666,
                 };
 
@@ -622,8 +622,8 @@ impl vfs::NFSFileSystem for MirrorFS {
                         .map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
 
                     // Set ownership if provided
-                    if let nfs3::set_uid3::uid(uid) = attrs.uid {
-                        if let nfs3::set_gid3::gid(gid) = attrs.gid {
+                    if let nfs3::set_uid3::Some(uid) = attrs.uid {
+                        if let nfs3::set_gid3::Some(gid) = attrs.gid {
                             std::os::unix::fs::chown(&path, Some(uid), Some(gid))
                                 .map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
                         }

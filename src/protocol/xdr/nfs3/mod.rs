@@ -17,15 +17,11 @@
 use std::fmt;
 use std::io::{Read, Write};
 
-use byteorder::{ReadBytesExt, WriteBytesExt};
 use filetime;
 use num_derive::{FromPrimitive, ToPrimitive};
-use num_traits::cast::FromPrimitive;
 
-use crate::{
-    DeserializeBoolUnion, DeserializeEnum, DeserializeStruct, SerializeBoolUnion, SerializeEnum,
-    SerializeStruct,
-};
+use crate::xdr::{DeserializeEnum, SerializeEnum};
+use crate::{DeserializeStruct, SerializeStruct};
 
 use super::{deserialize, Deserialize, Serialize};
 
@@ -322,8 +318,8 @@ pub enum nfsstat3 {
     /// respond to client with this error.
     NFS3ERR_JUKEBOX = 10008,
 }
-SerializeEnum!(nfsstat3);
-DeserializeEnum!(nfsstat3);
+impl SerializeEnum for nfsstat3 {}
+impl DeserializeEnum for nfsstat3 {}
 
 /// File type enumeration as defined in RFC 1813 section 2.3.5
 /// Determines the type of a file system object
@@ -347,8 +343,8 @@ pub enum ftype3 {
     /// Named Pipe
     NF3FIFO = 7,
 }
-SerializeEnum!(ftype3);
-DeserializeEnum!(ftype3);
+impl SerializeEnum for ftype3 {}
+impl DeserializeEnum for ftype3 {}
 
 /// Special device information for character and block special devices
 /// Contains the major and minor device numbers
@@ -460,35 +456,13 @@ SerializeStruct!(wcc_attr, size, mtime, ctime);
 /// Pre-operation attributes for weak cache consistency as defined in RFC 1813 section 2.3.8
 /// These attributes represent the file state before an operation was performed
 /// Used together with post-operation attributes to determine if file state changed
-#[allow(non_camel_case_types)]
-#[derive(Copy, Clone, Debug, Default)]
-#[repr(u32)]
-pub enum pre_op_attr {
-    #[default]
-    /// No attributes available
-    Void,
-    /// Attributes are available
-    attributes(wcc_attr),
-}
-DeserializeBoolUnion!(pre_op_attr, attributes, wcc_attr);
-SerializeBoolUnion!(pre_op_attr, attributes, wcc_attr);
+pub type pre_op_attr = Option<wcc_attr>;
 
 /// Post-operation attributes for file information as defined in RFC 1813 section 2.3.8
 /// These attributes represent the file state after an operation was performed
 /// Returned in almost all NFS procedure responses to allow clients to maintain
 /// a consistent cache of file attributes
-#[allow(non_camel_case_types)]
-#[derive(Copy, Clone, Debug, Default)]
-#[repr(u32)]
-pub enum post_op_attr {
-    #[default]
-    /// No attributes available
-    Void,
-    /// Attributes are available
-    attributes(fattr3),
-}
-DeserializeBoolUnion!(post_op_attr, attributes, fattr3);
-SerializeBoolUnion!(post_op_attr, attributes, fattr3);
+pub type post_op_attr = Option<fattr3>;
 
 /// Weak cache consistency data as defined in RFC 1813 section 2.3.8
 /// Contains file attributes before and after an operation
@@ -505,71 +479,11 @@ pub struct wcc_data {
 DeserializeStruct!(wcc_data, before, after);
 SerializeStruct!(wcc_data, before, after);
 
-/// Optional file handle response
-#[allow(non_camel_case_types)]
-#[derive(Clone, Debug, Default)]
-#[repr(u32)]
-pub enum post_op_fh3 {
-    #[default]
-    /// No file handle
-    Void,
-    /// File handle is available
-    handle(nfs_fh3),
-}
-DeserializeBoolUnion!(post_op_fh3, handle, nfs_fh3);
-SerializeBoolUnion!(post_op_fh3, handle, nfs_fh3);
-
-/// Optional file mode for SETATTR operations
-#[allow(non_camel_case_types)]
-#[derive(Copy, Clone, Debug)]
-#[repr(u32)]
-pub enum set_mode3 {
-    /// Don't change mode
-    Void,
-    /// Set to specified mode
-    mode(mode3),
-}
-DeserializeBoolUnion!(set_mode3, mode, mode3);
-SerializeBoolUnion!(set_mode3, mode, mode3);
-
-/// Optional user ID for SETATTR operations
-#[allow(non_camel_case_types)]
-#[derive(Copy, Clone, Debug)]
-#[repr(u32)]
-pub enum set_uid3 {
-    /// Don't change user ID
-    Void,
-    /// Set to specified user ID
-    uid(uid3),
-}
-DeserializeBoolUnion!(set_uid3, uid, uid3);
-SerializeBoolUnion!(set_uid3, uid, uid3);
-
-/// Optional group ID for SETATTR operations
-#[allow(non_camel_case_types)]
-#[derive(Copy, Clone, Debug)]
-#[repr(u32)]
-pub enum set_gid3 {
-    /// Don't change group ID
-    Void,
-    /// Set to specified group ID
-    gid(gid3),
-}
-DeserializeBoolUnion!(set_gid3, gid, gid3);
-SerializeBoolUnion!(set_gid3, gid, gid3);
-
-/// Optional file size for SETATTR operations
-#[allow(non_camel_case_types)]
-#[derive(Copy, Clone, Debug)]
-#[repr(u32)]
-pub enum set_size3 {
-    /// Don't change file size
-    Void,
-    /// Set to specified size
-    size(size3),
-}
-DeserializeBoolUnion!(set_size3, size, size3);
-SerializeBoolUnion!(set_size3, size, size3);
+pub type post_op_fh3 = Option<nfs_fh3>;
+pub type set_mode3 = Option<mode3>;
+pub type set_uid3 = Option<uid3>;
+pub type set_gid3 = Option<gid3>;
+pub type set_size3 = Option<size3>;
 
 /// Specifies how to modify the last access time (atime) during a SETATTR operation.
 /// This enum allows the client to either:
@@ -621,7 +535,7 @@ impl Deserialize for set_atime {
             c => {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidData,
-                    format!("Invalid set_atime value: {}", c),
+                    format!("Invalid set_atime value: {c}"),
                 ));
             }
         }
@@ -682,7 +596,7 @@ impl Deserialize for set_mtime {
             c => {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidData,
-                    format!("Invalid set_mtime value: {}", c),
+                    format!("Invalid set_mtime value: {c}"),
                 ));
             }
         }
@@ -714,10 +628,10 @@ SerializeStruct!(sattr3, mode, uid, gid, size, atime, mtime);
 impl Default for sattr3 {
     fn default() -> sattr3 {
         sattr3 {
-            mode: set_mode3::Void,
-            uid: set_uid3::Void,
-            gid: set_gid3::Void,
-            size: set_size3::Void,
+            mode: set_mode3::None,
+            uid: set_uid3::None,
+            gid: set_gid3::None,
+            size: set_size3::None,
             atime: set_atime::DONT_CHANGE,
             mtime: set_mtime::DONT_CHANGE,
         }
@@ -780,22 +694,10 @@ pub enum createmode3 {
     /// Use exclusive create mechanism (with verifier)
     EXCLUSIVE = 2,
 }
-SerializeEnum!(createmode3);
-DeserializeEnum!(createmode3);
+impl SerializeEnum for createmode3 {}
+impl DeserializeEnum for createmode3 {}
 
-/// Guard condition for SETATTR operations based on ctime
-#[allow(non_camel_case_types)]
-#[derive(Copy, Clone, Debug, Default)]
-#[repr(u32)]
-pub enum sattrguard3 {
-    #[default]
-    /// No guard - unconditional change
-    Void,
-    /// Only change if file's ctime matches provided value
-    obj_ctime(nfstime3),
-}
-DeserializeBoolUnion!(sattrguard3, obj_ctime, nfstime3);
-SerializeBoolUnion!(sattrguard3, obj_ctime, nfstime3);
+pub type sattrguard3 = Option<nfstime3>;
 
 /// Arguments for SETATTR operations
 #[allow(non_camel_case_types)]
@@ -806,7 +708,7 @@ pub struct SETATTR3args {
     /// New attributes to set
     pub new_attribute: sattr3,
     /// Guard condition for atomic change
-    pub guard: sattrguard3,
+    pub guard: Option<nfstime3>,
 }
 DeserializeStruct!(SETATTR3args, object, new_attribute, guard);
 SerializeStruct!(SETATTR3args, object, new_attribute, guard);

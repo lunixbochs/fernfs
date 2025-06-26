@@ -73,13 +73,12 @@ pub async fn nfsproc3_write(
     let id = id.unwrap();
 
     // get the object attributes before the write
-    let pre_obj_attr = match context.vfs.getattr(id).await {
-        Ok(v) => {
-            let wccattr = nfs3::wcc_attr { size: v.size, mtime: v.mtime, ctime: v.ctime };
-            nfs3::pre_op_attr::attributes(wccattr)
-        }
-        Err(_) => nfs3::pre_op_attr::Void,
-    };
+    let pre_obj_attr = context
+        .vfs
+        .getattr(id)
+        .await
+        .map(|v| nfs3::wcc_attr { size: v.size, mtime: v.mtime, ctime: v.ctime })
+        .ok();
 
     match context.vfs.write(id, args.offset, &args.data).await {
         Ok(fattr) => {
@@ -87,7 +86,7 @@ pub async fn nfsproc3_write(
             let res = nfs3::file::WRITE3resok {
                 file_wcc: nfs3::wcc_data {
                     before: pre_obj_attr,
-                    after: nfs3::post_op_attr::attributes(fattr),
+                    after: nfs3::post_op_attr::Some(fattr),
                 },
                 count: args.count,
                 committed: nfs3::file::stable_how::FILE_SYNC,

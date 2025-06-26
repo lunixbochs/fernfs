@@ -13,7 +13,6 @@
 use std::io::{Read, Write};
 
 use num_derive::{FromPrimitive, ToPrimitive};
-use num_traits::FromPrimitive;
 
 use super::*;
 
@@ -63,5 +62,5 @@ pub enum PortmapProgram {
     /// Invalid procedure number
     INVALID,
 }
-SerializeEnum!(PortmapProgram);
-DeserializeEnum!(PortmapProgram);
+impl SerializeEnum for PortmapProgram {}
+impl DeserializeEnum for PortmapProgram {}

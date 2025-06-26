@@ -41,8 +41,8 @@ pub enum devicetype3 {
     /// FIFO pipe
     NF3FIFO = 3,
 }
-SerializeEnum!(devicetype3);
-DeserializeEnum!(devicetype3);
+impl SerializeEnum for devicetype3 {}
+impl DeserializeEnum for devicetype3 {}
 
 /// Arguments for the MKDIR procedure (procedure 9)
 /// as defined in RFC 1813 section 3.3.9

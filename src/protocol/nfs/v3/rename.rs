@@ -102,7 +102,7 @@ pub async fn nfsproc3_rename(
     let pre_from_dir_attr = match context.vfs.getattr(from_dirid).await {
         Ok(v) => {
             let wccattr = nfs3::wcc_attr { size: v.size, mtime: v.mtime, ctime: v.ctime };
-            nfs3::pre_op_attr::attributes(wccattr)
+            nfs3::pre_op_attr::Some(wccattr)
         }
         Err(stat) => {
             error!("Cannot stat directory");
@@ -117,7 +117,7 @@ pub async fn nfsproc3_rename(
     let pre_to_dir_attr = match context.vfs.getattr(to_dirid).await {
         Ok(v) => {
             let wccattr = nfs3::wcc_attr { size: v.size, mtime: v.mtime, ctime: v.ctime };
-            nfs3::pre_op_attr::attributes(wccattr)
+            nfs3::pre_op_attr::Some(wccattr)
         }
         Err(stat) => {
             error!("Cannot stat directory");
@@ -132,14 +132,8 @@ pub async fn nfsproc3_rename(
     let res = context.vfs.rename(from_dirid, &fromdirops.name, to_dirid, &todirops.name).await;
 
     // Re-read dir attributes for post op attr
-    let post_from_dir_attr = match context.vfs.getattr(from_dirid).await {
-        Ok(v) => nfs3::post_op_attr::attributes(v),
-        Err(_) => nfs3::post_op_attr::Void,
-    };
-    let post_to_dir_attr = match context.vfs.getattr(to_dirid).await {
-        Ok(v) => nfs3::post_op_attr::attributes(v),
-        Err(_) => nfs3::post_op_attr::Void,
-    };
+    let post_from_dir_attr = context.vfs.getattr(from_dirid).await.ok();
+    let post_to_dir_attr = context.vfs.getattr(to_dirid).await.ok();
     let from_wcc_res = nfs3::wcc_data { before: pre_from_dir_attr, after: post_from_dir_attr };
 
     let to_wcc_res = nfs3::wcc_data { before: pre_to_dir_attr, after: post_to_dir_attr };

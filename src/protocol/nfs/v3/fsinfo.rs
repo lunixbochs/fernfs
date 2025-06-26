@@ -53,7 +53,7 @@ pub async fn nfsproc3_fsinfo(
     if let Err(stat) = id {
         xdr::rpc::make_success_reply(xid).serialize(output)?;
         stat.serialize(output)?;
-        nfs3::post_op_attr::Void.serialize(output)?;
+        nfs3::post_op_attr::None.serialize(output)?;
         return Ok(());
     }
     let id = id.unwrap();

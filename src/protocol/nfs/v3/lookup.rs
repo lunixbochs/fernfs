@@ -50,23 +50,17 @@ pub async fn nfsproc3_lookup(
     if let Err(stat) = dirid {
         xdr::rpc::make_success_reply(xid).serialize(output)?;
         stat.serialize(output)?;
-        nfs3::post_op_attr::Void.serialize(output)?;
+        nfs3::post_op_attr::None.serialize(output)?;
         return Ok(());
     }
 
     let dirid = dirid.unwrap();
 
-    let dir_attr = match context.vfs.getattr(dirid).await {
-        Ok(v) => nfs3::post_op_attr::attributes(v),
-        Err(_) => nfs3::post_op_attr::Void,
-    };
+    let dir_attr = context.vfs.getattr(dirid).await.ok();
 
     match context.vfs.lookup(dirid, &dirops.name).await {
         Ok(fid) => {
-            let obj_attr = match context.vfs.getattr(fid).await {
-                Ok(v) => nfs3::post_op_attr::attributes(v),
-                Err(_) => nfs3::post_op_attr::Void,
-            };
+            let obj_attr = context.vfs.getattr(fid).await.ok();
 
             debug!("nfsproc3_lookup success {:?} --> {:?}", xid, obj_attr);
             xdr::rpc::make_success_reply(xid).serialize(output)?;

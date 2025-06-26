@@ -223,18 +223,18 @@ pub async fn path_setattr(path: &Path, setattr: &nfs3::sattr3) -> Result<(), nfs
         }
         _ => {}
     };
-    if let nfs3::set_mode3::mode(mode) = setattr.mode {
+    if let nfs3::set_mode3::Some(mode) = setattr.mode {
         debug!(" -- set permissions {:?} {:?}", path, mode);
         let mode = mode_unmask(mode);
         let _ = std::fs::set_permissions(path, Permissions::from_mode(mode));
     };
-    if let nfs3::set_uid3::uid(_) = setattr.uid {
+    if setattr.uid.is_some() {
         debug!("Set uid not implemented");
     }
-    if let nfs3::set_gid3::gid(_) = setattr.gid {
+    if setattr.gid.is_some() {
         debug!("Set gid not implemented");
     }
-    if let nfs3::set_size3::size(size3) = setattr.size {
+    if let nfs3::set_size3::Some(size3) = setattr.size {
         let file = OpenOptions::new()
             .read(true)
             .write(true)
@@ -265,12 +265,12 @@ pub async fn file_setattr(
     file: &std::fs::File,
     setattr: &nfs3::sattr3,
 ) -> Result<(), nfs3::nfsstat3> {
-    if let nfs3::set_mode3::mode(mode) = setattr.mode {
+    if let nfs3::set_mode3::Some(mode) = setattr.mode {
         debug!(" -- set permissions {:?}", mode);
         let mode = mode_unmask(mode);
         let _ = file.set_permissions(Permissions::from_mode(mode));
     }
-    if let nfs3::set_size3::size(size3) = setattr.size {
+    if let nfs3::set_size3::Some(size3) = setattr.size {
         debug!(" -- set size {:?}", size3);
         file.set_len(size3).or(Err(nfs3::nfsstat3::NFS3ERR_IO))?;
     }

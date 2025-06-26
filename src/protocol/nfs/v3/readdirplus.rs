@@ -60,16 +60,13 @@ pub async fn nfsproc3_readdirplus(
     if let Err(stat) = dirid {
         xdr::rpc::make_success_reply(xid).serialize(output)?;
         stat.serialize(output)?;
-        nfs3::post_op_attr::Void.serialize(output)?;
+        nfs3::post_op_attr::None.serialize(output)?;
         return Ok(());
     }
     let dirid = dirid.unwrap();
     let dir_attr_maybe = context.vfs.getattr(dirid).await;
 
-    let dir_attr = match dir_attr_maybe {
-        Ok(v) => nfs3::post_op_attr::attributes(v),
-        Err(_) => nfs3::post_op_attr::Void,
-    };
+    let dir_attr = dir_attr_maybe.ok();
 
     let dirversion = if let Ok(ref dir_attr) = dir_attr_maybe {
         let cvf_version =
@@ -167,13 +164,13 @@ pub async fn nfsproc3_readdirplus(
             dirversion.serialize(&mut counting_output)?;
             for entry in result.entries {
                 let obj_attr = entry.attr;
-                let handle = nfs3::post_op_fh3::handle(context.vfs.id_to_fh(entry.fileid));
+                let handle = nfs3::post_op_fh3::Some(context.vfs.id_to_fh(entry.fileid));
 
                 let entry = nfs3::dir::entryplus3 {
                     fileid: entry.fileid,
                     name: entry.name,
                     cookie: entry.fileid,
-                    name_attributes: nfs3::post_op_attr::attributes(obj_attr),
+                    name_attributes: nfs3::post_op_attr::Some(obj_attr),
                     name_handle: handle,
                 };
                 // write the entry into a buffer first

@@ -56,16 +56,13 @@ pub async fn nfsproc3_readdir(
     if let Err(stat) = dirid {
         xdr::rpc::make_success_reply(xid).serialize(output)?;
         stat.serialize(output)?;
-        nfs3::post_op_attr::Void.serialize(output)?;
+        nfs3::post_op_attr::None.serialize(output)?;
         return Ok(());
     }
     let dirid = dirid.unwrap();
     let dir_attr_maybe = context.vfs.getattr(dirid).await;
 
-    let dir_attr = match dir_attr_maybe {
-        Ok(v) => nfs3::post_op_attr::attributes(v),
-        Err(_) => nfs3::post_op_attr::Void,
-    };
+    let dir_attr = dir_attr_maybe.ok();
 
     let dirversion = if let Ok(ref dir_attr) = dir_attr_maybe {
         let cvf_version =

@@ -465,10 +465,7 @@ pub trait NFSFileSystem: Sync {
         &self,
         root_fileid: nfs3::fileid3,
     ) -> Result<nfs3::fs::fsinfo3, nfs3::nfsstat3> {
-        let dir_attr: nfs3::post_op_attr = match self.getattr(root_fileid).await {
-            Ok(v) => nfs3::post_op_attr::attributes(v),
-            Err(_) => nfs3::post_op_attr::Void,
-        };
+        let dir_attr: nfs3::post_op_attr = self.getattr(root_fileid).await.ok();
 
         let res = nfs3::fs::fsinfo3 {
             obj_attributes: dir_attr,

@@ -81,7 +81,7 @@ pub async fn nfsproc3_create(
     let pre_dir_attr = match context.vfs.getattr(dirid).await {
         Ok(v) => {
             let wccattr = nfs3::wcc_attr { size: v.size, mtime: v.mtime, ctime: v.ctime };
-            nfs3::pre_op_attr::attributes(wccattr)
+            nfs3::pre_op_attr::Some(wccattr)
         }
         Err(stat) => {
             error!("Cannot stat directory");
@@ -105,10 +105,7 @@ pub async fn nfsproc3_create(
                 // file exists. Fail with NFS3ERR_EXIST.
                 // Re-read dir attributes
                 // for post op attr
-                let post_dir_attr = match context.vfs.getattr(dirid).await {
-                    Ok(v) => nfs3::post_op_attr::attributes(v),
-                    Err(_) => nfs3::post_op_attr::Void,
-                };
+                let post_dir_attr = context.vfs.getattr(dirid).await.ok();
 
                 xdr::rpc::make_success_reply(xid).serialize(output)?;
                 nfs3::nfsstat3::NFS3ERR_EXIST.serialize(output)?;
@@ -128,23 +125,16 @@ pub async fn nfsproc3_create(
         // the API for exclusive is very slightly different
         // We are not returning a post op attribute
         fid = context.vfs.create_exclusive(dirid, &dirops.name).await;
-        postopattr = nfs3::post_op_attr::Void;
+        postopattr = nfs3::post_op_attr::None;
     } else {
         // create!
         let res = context.vfs.create(dirid, &dirops.name, target_attributes).await;
         fid = res.map(|x| x.0);
-        postopattr = if let Ok((_, fattr)) = res {
-            nfs3::post_op_attr::attributes(fattr)
-        } else {
-            nfs3::post_op_attr::Void
-        };
+        postopattr = res.map(|(_, fattr)| fattr).ok();
     }
 
     // Re-read dir attributes for post op attr
-    let post_dir_attr = match context.vfs.getattr(dirid).await {
-        Ok(v) => nfs3::post_op_attr::attributes(v),
-        Err(_) => nfs3::post_op_attr::Void,
-    };
+    let post_dir_attr = context.vfs.getattr(dirid).await.ok();
     let wcc_res = nfs3::wcc_data { before: pre_dir_attr, after: post_dir_attr };
 
     match fid {
@@ -154,7 +144,7 @@ pub async fn nfsproc3_create(
             nfs3::nfsstat3::NFS3_OK.serialize(output)?;
             // serialize CREATE3resok
             let fh = context.vfs.id_to_fh(fid);
-            nfs3::post_op_fh3::handle(fh).serialize(output)?;
+            nfs3::post_op_fh3::Some(fh).serialize(output)?;
             postopattr.serialize(output)?;
             wcc_res.serialize(output)?;
         }

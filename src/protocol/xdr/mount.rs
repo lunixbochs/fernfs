@@ -12,9 +12,8 @@
 
 use std::io::{Read, Write};
 
-use byteorder::{ReadBytesExt, WriteBytesExt};
+use crate::xdr::{DeserializeEnum, SerializeEnum};
 use num_derive::{FromPrimitive, ToPrimitive};
-use num_traits::cast::FromPrimitive;
 
 use super::*;
 
@@ -63,8 +62,8 @@ pub enum mountstat3 {
     /// A failure on the server
     MNT3ERR_SERVERFAULT = 10006, /* A failure on the server */
 }
-SerializeEnum!(mountstat3);
-DeserializeEnum!(mountstat3);
+impl SerializeEnum for mountstat3 {}
+impl DeserializeEnum for mountstat3 {}
 
 /// Successful response to a mount request
 #[allow(non_camel_case_types)]
@@ -98,5 +97,5 @@ pub enum MountProgram {
     /// Invalid procedure number
     INVALID,
 }
-SerializeEnum!(MountProgram);
-DeserializeEnum!(MountProgram);
+impl SerializeEnum for MountProgram {}
+impl DeserializeEnum for MountProgram {}

@@ -9,9 +9,7 @@
 
 use std::io::{Read, Write};
 
-use byteorder::{ReadBytesExt, WriteBytesExt};
 use num_derive::{FromPrimitive, ToPrimitive};
-use num_traits::cast::FromPrimitive;
 
 use super::*;
 
@@ -32,8 +30,8 @@ pub enum auth_stat {
     /// Authentication mechanism too weak for requested operation
     AUTH_TOOWEAK = 5,
 }
-SerializeEnum!(auth_stat);
-DeserializeEnum!(auth_stat);
+impl SerializeEnum for auth_stat {}
+impl DeserializeEnum for auth_stat {}
 
 /// Authentication flavor (mechanism) identifiers for RPC
 #[allow(non_camel_case_types)]
@@ -51,8 +49,8 @@ pub enum auth_flavor {
     AUTH_DES = 3,
     /* and more to be defined */
 }
-SerializeEnum!(auth_flavor);
-DeserializeEnum!(auth_flavor);
+impl SerializeEnum for auth_flavor {}
+impl DeserializeEnum for auth_flavor {}
 
 #[allow(non_camel_case_types)]
 #[derive(Clone, Debug, Default)]

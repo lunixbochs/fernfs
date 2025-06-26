@@ -55,15 +55,12 @@ pub async fn nfsproc3_pathconf(
     if let Err(stat) = id {
         xdr::rpc::make_success_reply(xid).serialize(output)?;
         stat.serialize(output)?;
-        nfs3::post_op_attr::Void.serialize(output)?;
+        nfs3::post_op_attr::None.serialize(output)?;
         return Ok(());
     }
     let id = id.unwrap();
 
-    let obj_attr = match context.vfs.getattr(id).await {
-        Ok(v) => nfs3::post_op_attr::attributes(v),
-        Err(_) => nfs3::post_op_attr::Void,
-    };
+    let obj_attr = context.vfs.getattr(id).await.ok();
     let res = nfs3::fs::PATHCONF3resok {
         obj_attributes: obj_attr,
         linkmax: 0,

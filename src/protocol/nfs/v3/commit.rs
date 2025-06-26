@@ -61,18 +61,17 @@ pub async fn nfsproc3_commit(
     let id = id.unwrap();
 
     // get the object attributes before the commit
-    let pre_obj_attr = match context.vfs.getattr(id).await {
-        Ok(v) => {
-            let wccattr = nfs3::wcc_attr { size: v.size, mtime: v.mtime, ctime: v.ctime };
-            nfs3::pre_op_attr::attributes(wccattr)
-        }
-        Err(_) => nfs3::pre_op_attr::Void,
-    };
+    let pre_obj_attr = context
+        .vfs
+        .getattr(id)
+        .await
+        .map(|v| nfs3::wcc_attr { size: v.size, mtime: v.mtime, ctime: v.ctime })
+        .ok();
 
     // Call VFS commit method
     match context.vfs.commit(id, args.offset, args.count).await {
         Ok(fattr) => {
-            let post_obj_attr = nfs3::post_op_attr::attributes(fattr);
+            let post_obj_attr = nfs3::post_op_attr::Some(fattr);
 
             let res = nfs3::file::COMMIT3resok {
                 file_wcc: nfs3::wcc_data { before: pre_obj_attr, after: post_obj_attr },
@@ -85,10 +84,7 @@ pub async fn nfsproc3_commit(
             res.serialize(output)?;
         }
         Err(stat) => {
-            let post_obj_attr = match context.vfs.getattr(id).await {
-                Ok(v) => nfs3::post_op_attr::attributes(v),
-                Err(_) => nfs3::post_op_attr::Void,
-            };
+            let post_obj_attr = context.vfs.getattr(id).await.ok();
 
             let wcc_data = nfs3::wcc_data { before: pre_obj_attr, after: post_obj_attr };
 

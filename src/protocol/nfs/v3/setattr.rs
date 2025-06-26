@@ -75,7 +75,7 @@ pub async fn nfsproc3_setattr(
         Ok(v) => {
             let wccattr = nfs3::wcc_attr { size: v.size, mtime: v.mtime, ctime: v.ctime };
             ctime = v.ctime;
-            nfs3::pre_op_attr::attributes(wccattr)
+            nfs3::pre_op_attr::Some(wccattr)
         }
         Err(stat) => {
             xdr::rpc::make_success_reply(xid).serialize(output)?;
@@ -85,14 +85,11 @@ pub async fn nfsproc3_setattr(
         }
     };
     // handle the guard
-    match args.guard {
-        nfs3::sattrguard3::Void => {}
-        nfs3::sattrguard3::obj_ctime(c) => {
-            if c.seconds != ctime.seconds || c.nseconds != ctime.nseconds {
-                xdr::rpc::make_success_reply(xid).serialize(output)?;
-                nfs3::nfsstat3::NFS3ERR_NOT_SYNC.serialize(output)?;
-                nfs3::wcc_data::default().serialize(output)?;
-            }
+    if let nfs3::sattrguard3::Some(c) = args.guard {
+        if c.seconds != ctime.seconds || c.nseconds != ctime.nseconds {
+            xdr::rpc::make_success_reply(xid).serialize(output)?;
+            nfs3::nfsstat3::NFS3ERR_NOT_SYNC.serialize(output)?;
+            nfs3::wcc_data::default().serialize(output)?;
         }
     }
 
@@ -101,7 +98,7 @@ pub async fn nfsproc3_setattr(
             debug!(" setattr success {:?} --> {:?}", xid, post_op_attr);
             let wcc_res = nfs3::wcc_data {
                 before: pre_op_attr,
-                after: nfs3::post_op_attr::attributes(post_op_attr),
+                after: nfs3::post_op_attr::Some(post_op_attr),
             };
             xdr::rpc::make_success_reply(xid).serialize(output)?;
             nfs3::nfsstat3::NFS3_OK.serialize(output)?;

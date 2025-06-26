@@ -66,11 +66,11 @@ pub async fn nfsproc3_readlink(
     let id = id.unwrap();
     // if the id does not exist, we fail
     let symlink_attr = match context.vfs.getattr(id).await {
-        Ok(v) => nfs3::post_op_attr::attributes(v),
+        Ok(v) => nfs3::post_op_attr::Some(v),
         Err(stat) => {
             xdr::rpc::make_success_reply(xid).serialize(output)?;
             stat.serialize(output)?;
-            nfs3::post_op_attr::Void.serialize(output)?;
+            nfs3::post_op_attr::None.serialize(output)?;
             return Ok(());
         }
     };

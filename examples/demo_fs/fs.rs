@@ -187,26 +187,26 @@ impl vfs::NFSFileSystem for DemoFS {
             }
         };
         match setattr.uid {
-            nfs3::set_uid3::uid(u) => {
+            nfs3::set_uid3::Some(u) => {
                 entry.attr.uid = u;
             }
-            nfs3::set_uid3::Void => {}
+            nfs3::set_uid3::None => {}
         }
         match setattr.gid {
-            nfs3::set_gid3::gid(u) => {
+            nfs3::set_gid3::Some(u) => {
                 entry.attr.gid = u;
             }
-            nfs3::set_gid3::Void => {}
+            nfs3::set_gid3::None => {}
         }
         match setattr.size {
-            nfs3::set_size3::size(s) => {
+            nfs3::set_size3::Some(s) => {
                 entry.attr.size = s;
                 entry.attr.used = s;
                 if let FSContents::File(bytes) = &mut entry.contents {
                     bytes.resize(s as usize, 0);
                 }
             }
-            nfs3::set_size3::Void => {}
+            nfs3::set_size3::None => {}
         }
         Ok(entry.attr)
     }
@@ -644,15 +644,15 @@ impl vfs::NFSFileSystem for DemoFS {
         }
 
         // Apply any additional attributes
-        if let nfs3::set_mode3::mode(mode) = attrs.mode {
+        if let nfs3::set_mode3::Some(mode) = attrs.mode {
             entry.attr.mode = mode;
         }
 
-        if let nfs3::set_uid3::uid(uid) = attrs.uid {
+        if let nfs3::set_uid3::Some(uid) = attrs.uid {
             entry.attr.uid = uid;
         }
 
-        if let nfs3::set_gid3::gid(gid) = attrs.gid {
+        if let nfs3::set_gid3::Some(gid) = attrs.gid {
             entry.attr.gid = gid;
         }
 
