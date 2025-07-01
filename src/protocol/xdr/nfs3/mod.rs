@@ -621,7 +621,7 @@ impl Deserialize for set_atime {
             c => {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidData,
-                    format!("Invalid set_atime value: {}", c),
+                    format!("Invalid set_atime value: {c}"),
                 ));
             }
         }
@@ -682,7 +682,7 @@ impl Deserialize for set_mtime {
             c => {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidData,
-                    format!("Invalid set_mtime value: {}", c),
+                    format!("Invalid set_mtime value: {c}"),
                 ));
             }
         }

@@ -1,12 +1,6 @@
 # GitFlic CI/CD Configuration for NFS Mamont Rust Project
 
-image: ubuntu:latest
-
-before_script:
-  - apt update && apt -y install curl build-essential
-  - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-  - . "$HOME/.cargo/env"
-  - rustup default stable
+image: registry.gitflic.ru/project/yadro/nfs-mamont/rust:1.88.0-slim-bullseye
 
 stages:
   - fmt
@@ -17,11 +11,13 @@ stages:
 fmt:
   stage: fmt
   script:
+    - rustup component add rustfmt
     - cargo fmt --check
 
 clippy:
   stage: clippy
   script:
+    - rustup component add clippy
     - cargo clippy -- -Dwarnings
   needs:
     - fmt
