@@ -1,15 +1,27 @@
 use std::io::{Read, Write};
 
-pub const ALIGMENT: usize = 4;
+pub const ALIGNMENT: usize = 4;
+
+fn padding_len(src_len: usize) -> usize {
+    (ALIGNMENT - (src_len % ALIGNMENT)) % ALIGNMENT
+}
 
 pub fn read_padding(src_len: usize, src: &mut impl Read) -> std::io::Result<()> {
-    let mut padding_buffer: [u8; ALIGMENT] = Default::default();
-    src.read_exact(&mut padding_buffer[(src_len % ALIGMENT)..])
+    let pad_len = padding_len(src_len);
+    if pad_len > 0 {
+        let mut padding_buffer: [u8; ALIGNMENT] = Default::default();
+        src.read_exact(&mut padding_buffer[..pad_len])?;
+    }
+    Ok(())
 }
 
 pub fn write_padding(src_len: usize, dest: &mut impl Write) -> std::io::Result<()> {
-    let padding_buffer: [u8; ALIGMENT] = Default::default();
-    dest.write_all(&padding_buffer[(src_len % ALIGMENT)..])
+    let pad_len = padding_len(src_len);
+    if pad_len > 0 {
+        let padding_buffer: [u8; ALIGNMENT] = Default::default();
+        dest.write_all(&padding_buffer[..pad_len])?;
+    }
+    Ok(())
 }
 
 pub fn invalid_data(m: &str) -> std::io::Error {
