@@ -12,11 +12,13 @@ use crate::protocol::xdr::{self, portmap, Serialize};
 mod get_port;
 mod null;
 mod set_port;
+mod unset_port;
 
 use get_port::pmapproc_getport;
 use null::pmapproc_null;
 
 use crate::protocol::nfs::portmap::set_port::pmapproc_setport;
+use crate::protocol::nfs::portmap::unset_port::pmapproc_unsetport;
 use crate::protocol::rpc::Context;
 
 ///Stores mapping program to port
@@ -72,6 +74,7 @@ pub fn handle_portmap(
         portmap::PortmapProgram::PMAPPROC_NULL => pmapproc_null(xid, output)?,
         portmap::PortmapProgram::PMAPPROC_GETPORT => pmapproc_getport(xid, input, output, context)?,
         portmap::PortmapProgram::PMAPPROC_SET => pmapproc_setport(xid, input, output, context)?,
+        portmap::PortmapProgram::PMAPPROC_UNSET => pmapproc_unsetport(xid, input, output, context)?,
         _ => {
             xdr::rpc::proc_unavail_reply_message(xid).serialize(output)?;
         }
