@@ -3,7 +3,7 @@ name = "fernfs"
 version = "0.1.0"
 edition = "2021"
 description = "A Rust NFS Server implementation"
-publish = false
+publish = true
 rust-version = "1.83.0"
 
 [lib]
