@@ -1,0 +1,88 @@
+cpus: 8
+memory: 8GiB
+disk: 64GiB
+nestedVirtualization: true
+minimumLimaVersion: 2.0.0
+
+param:
+  AppDir:
+
+base:
+  # using _images: instead of template: to avoid the homedir mount
+  - template:_images/ubuntu-24.04
+
+user:
+  name: user
+  home: /home/{{.User}}
+
+mounts:
+  - location: "{{.Param.AppDir}}"
+    mountPoint: /mnt/app
+    writable: true
+
+# NOTE: 9p is broken in Linux v6.9, v6.10, and v6.11.
+# The issue was fixed in Linux v6.12-rc5 (https://github.com/torvalds/linux/commit/be2ca38).
+
+mountType: null
+mountInotify: true
+
+# Upgrade the instance on boot
+# Reboot after upgrade if required
+upgradePackages: null
+
+containerd:
+  system: false
+  user: false
+
+provision:
+  - mode: data
+    path: /etc/systemd/system/nfs-mamont.service
+    content: |
+      [Unit]
+      Description=nfs-mamont mirrorfs server
+      After=network.target
+
+      [Service]
+      User=user
+      WorkingDirectory=/mnt/app
+      ExecStart=/mnt/app/target/debug/examples/mirrorfs /opt/nfs-mamont
+      Restart=on-failure
+
+      [Install]
+      WantedBy=multi-user.target
+    owner: "root:root"
+    permissions: 644
+
+  - mode: system
+    script: |
+      #!/bin/bash -eux
+      apt-get update
+      apt-get -y install build-essential git cmake curl ca-certificates nfs-kernel-server nfs-common rpcbind pkg-config libnsl-dev
+      usermod -aG sudo user
+
+      sudo -Hu user bash -lc 'curl https://sh.rustup.rs -sSf | sh -s -- -y'
+      sudo -Hu user bash -lc 'source "$HOME/.cargo/env" && rustup toolchain install 1.83.0'
+      sudo -Hu user bash -lc 'source "$HOME/.cargo/env" && cd /mnt/app && cargo build --examples'
+
+      cd /home/user
+      sudo -u user git clone https://github.com/phdeniel/cthon04'
+      sudo -u user git clone --recursive https://github.com/nfs-ganesha/nfs-ganesha'
+      cd /home/user/cthon04
+      sudo -u user make CFLAGS="-DLINUX -DHAVE_SOCKLEN_T -DGLIBC=22 -DMMAP -DSTDARG $(pkg-config --cflags libtirpc)" LIBS="-ltirpc -lnsl -lm"
+      sudo chown root:root domount
+      sudo chmod +s domount
+
+      mkdir -p /opt/nfs-kernel /opt/nfs-mamont /mnt/nfs-kernel /mnt/nfs-mamont
+      chown user:user /opt/nfs-kernel /opt/nfs-mamont
+      echo "/opt/nfs-kernel *(rw,sync,no_subtree_check,no_root_squash)" > /etc/exports
+      exportfs -ra
+      systemctl enable --now nfs-server || systemctl enable --now nfs-kernel-server
+
+      systemctl daemon-reload
+      systemctl enable --now nfs-mamont
+
+      sed -i '\|/mnt/nfs-kernel|d' /etc/fstab
+      sed -i '\|/mnt/nfs-mamont|d' /etc/fstab
+      echo '127.0.0.1:/opt/nfs-kernel /mnt/nfs-kernel nfs vers=3 0 0' >> /etc/fstab
+      echo '127.0.0.1:/ /mnt/nfs-mamont nfs vers=3,proto=tcp,port=11111,mountport=11111,nolock 0 0' >> /etc/fstab
+      mount -a
