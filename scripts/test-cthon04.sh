@@ -13,6 +13,6 @@ cd ~/cthon04
 # ./server -a 127.0.0.1 -m /mnt/cthon04 -p /opt/nfs-kernel
 
 echo "----------------------------------------"
-echo "-- mamont tests"
+echo "-- fernfs tests"
 echo "----------------------------------------"
 ./server -a 127.0.0.1 -o port=11111,mountport=11111,vers=3,proto=tcp,nolock -m /mnt/cthon04 -p /

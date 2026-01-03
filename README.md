@@ -1,4 +1,4 @@
-# NFS Mamont
+# FernFS
 
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](LICENSE)
 
@@ -20,7 +20,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-nfs-mamont = "0.0.0"
+fernfs = "0.0.0"
 tokio = { version = "1.0", features = ["full"] }
 ```
 
@@ -66,7 +66,7 @@ cargo run --example mirrorfs /path/to/directory
 To create a custom NFS server, implement the `NFSFileSystem` trait:
 
 ```rust
-use nfs_mamont::{tcp::NFSTcpListener, vfs::NFSFileSystem};
+use fernfs::{tcp::NFSTcpListener, vfs::NFSFileSystem};
 use async_trait::async_trait;
 
 struct MyFileSystem {
@@ -75,20 +75,20 @@ struct MyFileSystem {
 
 #[async_trait]
 impl NFSFileSystem for MyFileSystem {
-    fn capabilities(&self) -> nfs_mamont::vfs::Capabilities {
-        nfs_mamont::vfs::Capabilities::ReadWrite
+    fn capabilities(&self) -> fernfs::vfs::Capabilities {
+        fernfs::vfs::Capabilities::ReadWrite
     }
 
     fn root_dir(&self) -> u64 {
         1 // Root directory file ID
     }
 
-    async fn lookup(&self, dirid: u64, filename: &[u8]) -> Result<u64, nfs_mamont::nfs::nfsstat3> {
+    async fn lookup(&self, dirid: u64, filename: &[u8]) -> Result<u64, fernfs::nfs::nfsstat3> {
         // Implement file lookup logic
         todo!()
     }
 
-    async fn getattr(&self, id: u64) -> Result<nfs_mamont::nfs::fattr3, nfs_mamont::nfs::nfsstat3> {
+    async fn getattr(&self, id: u64) -> Result<fernfs::nfs::fattr3, fernfs::nfs::nfsstat3> {
         // Return file attributes
         todo!()
     }

@@ -7,9 +7,9 @@ mod support;
 use tokio::io::AsyncWriteExt;
 use tokio::time::timeout;
 
-use nfs_mamont::protocol::nfs::portmap::PortmapTable;
-use nfs_mamont::protocol::rpc::{Context, SocketMessageHandler, TransactionTracker};
-use nfs_mamont::xdr::{self, nfs3, Serialize};
+use fernfs::protocol::nfs::portmap::PortmapTable;
+use fernfs::protocol::rpc::{Context, SocketMessageHandler, TransactionTracker};
+use fernfs::xdr::{self, nfs3, Serialize};
 
 use support::DemoFS;
 
@@ -30,7 +30,7 @@ fn test_context() -> Context {
 async fn rejects_oversized_rpc_fragment() {
     let (mut handler, mut socksend, _msgrecv) = SocketMessageHandler::new(&test_context());
 
-    let oversized = nfs_mamont::protocol::rpc::MAX_RPC_RECORD_LENGTH + 1;
+    let oversized = fernfs::protocol::rpc::MAX_RPC_RECORD_LENGTH + 1;
     let fragment_header = (1_u32 << 31) | (oversized as u32);
     socksend
         .write_all(&fragment_header.to_be_bytes())

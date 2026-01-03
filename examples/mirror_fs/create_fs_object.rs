@@ -1,4 +1,4 @@
-use nfs_mamont::xdr::nfs3::{createverf3, nfspath3, sattr3};
+use fernfs::xdr::nfs3::{createverf3, nfspath3, sattr3};
 
 /// Enumeration for the create_fs_object method
 pub enum CreateFSObject {

@@ -10,9 +10,9 @@ use tokio::fs::{self, File, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use tracing::debug;
 
-use nfs_mamont::fs_util::{file_setattr, metadata_to_fattr3, path_setattr};
-use nfs_mamont::vfs;
-use nfs_mamont::xdr::nfs3;
+use fernfs::fs_util::{file_setattr, metadata_to_fattr3, path_setattr};
+use fernfs::vfs;
+use fernfs::xdr::nfs3;
 
 use crate::create_fs_object::CreateFSObject;
 use crate::error_handling::{exists_no_traverse, NFSResult, RefreshResult};

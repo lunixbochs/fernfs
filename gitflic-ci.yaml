@@ -1,6 +1,6 @@
-# GitFlic CI/CD Configuration for NFS Mamont Rust Project
+# GitFlic CI/CD Configuration for FernFS Rust Project
 
-image: registry.gitflic.ru/project/yadro/nfs-mamont/rust:1.88.0-slim-bullseye
+image: registry.gitflic.ru/project/yadro/fernfs/rust:1.88.0-slim-bullseye
 
 stages:
   - fmt

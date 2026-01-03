@@ -1,4 +1,4 @@
-use nfs_mamont::tcp::{NFSTcp, NFSTcpListener};
+use fernfs::tcp::{NFSTcp, NFSTcpListener};
 
 /// Implements the core file system functionality
 mod fs;
@@ -10,7 +10,7 @@ mod fs_entry;
 /// Port number on which the NFS server will listen
 const HOSTPORT: u32 = 11111;
 
-/// Demo NFS server implementation using the nfs-mamont library.
+/// Demo NFS server implementation using the fernfs library.
 /// Shows how to create a simple in-memory file system that supports NFS operations.
 #[tokio::main]
 async fn main() {

@@ -1,5 +1,5 @@
 [package]
-name = "nfs-mamont"
+name = "fernfs"
 version = "0.1.0"
 edition = "2021"
 description = "A Rust NFS Server implementation"

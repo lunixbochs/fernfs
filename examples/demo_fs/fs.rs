@@ -3,8 +3,8 @@ use std::time::SystemTime;
 
 use async_trait::async_trait;
 
-use nfs_mamont::vfs;
-use nfs_mamont::xdr::nfs3;
+use fernfs::vfs;
+use fernfs::xdr::nfs3;
 
 use crate::fs_contents::FSContents;
 use crate::fs_entry::{make_dir, make_file, FSEntry};

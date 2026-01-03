@@ -36,16 +36,16 @@ containerd:
 
 provision:
   - mode: data
-    path: /etc/systemd/system/nfs-mamont.service
+    path: /etc/systemd/system/fernfs.service
     content: |
       [Unit]
-      Description=nfs-mamont mirrorfs server
+      Description=fernfs mirrorfs server
       After=network.target
 
       [Service]
       User=user
       WorkingDirectory=/mnt/app
-      ExecStart=/mnt/app/target/debug/examples/mirrorfs /opt/nfs-mamont
+      ExecStart=/mnt/app/target/debug/examples/mirrorfs /opt/fernfs
       Restart=on-failure
 
       [Install]
@@ -77,17 +77,17 @@ provision:
       sudo chown root:root domount
       sudo chmod +s domount
 
-      mkdir -p /opt/nfs-kernel /opt/nfs-mamont /mnt/nfs-kernel /mnt/nfs-mamont
-      chown user:user /opt/nfs-kernel /opt/nfs-mamont
+      mkdir -p /opt/nfs-kernel /opt/fernfs /mnt/nfs-kernel /mnt/fernfs
+      chown user:user /opt/nfs-kernel /opt/fernfs
       echo "/opt/nfs-kernel *(rw,sync,no_subtree_check,no_root_squash)" > /etc/exports
       exportfs -ra
       systemctl enable --now nfs-server || systemctl enable --now nfs-kernel-server
 
       systemctl daemon-reload
-      systemctl enable --now nfs-mamont
+      systemctl enable --now fernfs
 
       sed -i '\|/mnt/nfs-kernel|d' /etc/fstab
-      sed -i '\|/mnt/nfs-mamont|d' /etc/fstab
+      sed -i '\|/mnt/fernfs|d' /etc/fstab
       echo '127.0.0.1:/opt/nfs-kernel /mnt/nfs-kernel nfs vers=3 0 0' >> /etc/fstab
-      echo '127.0.0.1:/ /mnt/nfs-mamont nfs vers=3,proto=tcp,port=11111,mountport=11111,nolock 0 0' >> /etc/fstab
+      echo '127.0.0.1:/ /mnt/fernfs nfs vers=3,proto=tcp,port=11111,mountport=11111,nolock 0 0' >> /etc/fstab
       mount -a

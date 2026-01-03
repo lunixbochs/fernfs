@@ -1,4 +1,4 @@
-//! NFS Mamont - A Network File System (NFS) server implementation in Rust
+//! FernFS - A Network File System (NFS) server implementation in Rust
 //!
 //! This library provides a complete implementation of the NFS version 3 protocol
 //! as defined in RFC 1813, allowing any Rust application to expose file systems

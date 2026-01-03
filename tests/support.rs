@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 
-use nfs_mamont::vfs::{self, Capabilities, ReadDirResult};
-use nfs_mamont::xdr::nfs3;
-use nfs_mamont::xdr::nfs3::{
+use fernfs::vfs::{self, Capabilities, ReadDirResult};
+use fernfs::xdr::nfs3;
+use fernfs::xdr::nfs3::{
     fattr3, fileid3, filename3, ftype3, nfspath3, nfsstat3, sattr3, specdata3,
 };
 

@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use nfs_mamont::vfs::NFSFileSystem;
-use nfs_mamont::xdr::nfs3;
+use fernfs::vfs::NFSFileSystem;
+use fernfs::xdr::nfs3;
 
 #[allow(dead_code)]
 #[path = "../examples/mirror_fs/create_fs_object.rs"]
@@ -28,7 +28,7 @@ impl TempDir {
     fn new(prefix: &str) -> std::io::Result<Self> {
         let mut path = std::env::temp_dir();
         let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-        path.push(format!("nfs_mamont_{prefix}_{nanos}"));
+        path.push(format!("fernfs_{prefix}_{nanos}"));
         std::fs::create_dir(&path)?;
         Ok(Self { path })
     }

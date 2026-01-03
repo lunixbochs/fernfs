@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock};
 
-use nfs_mamont::xdr::nfs3;
+use fernfs::xdr::nfs3;
 
 use crate::fs_contents::FSContents;
 

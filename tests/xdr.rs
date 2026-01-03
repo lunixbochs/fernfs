@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use nfs_mamont::xdr::{deserialize, Deserialize, Serialize};
+use fernfs::xdr::{deserialize, Deserialize, Serialize};
 
 #[derive(Default)]
 struct Context {
@@ -143,8 +143,8 @@ fn test_vec_bijection() {
 
 #[cfg(test)]
 mod portmap {
-    use nfs_mamont::xdr::portmap::{mapping, pmaplist};
-    use nfs_mamont::xdr::{deserialize, Serialize};
+    use fernfs::xdr::portmap::{mapping, pmaplist};
+    use fernfs::xdr::{deserialize, Serialize};
     use num_traits::Zero;
     use std::io::Cursor;
 

@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use intaglio::Symbol;
-use nfs_mamont::xdr::nfs3::{createverf3, fattr3, fileid3, ftype3};
+use fernfs::xdr::nfs3::{createverf3, fattr3, fileid3, ftype3};
 
 /// A file system entry representing a file or directory
 #[derive(Debug, Clone)]

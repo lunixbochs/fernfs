@@ -7,12 +7,12 @@ mod support;
 
 use num_traits::ToPrimitive;
 
-use nfs_mamont::protocol::nfs::portmap::PortmapTable;
-use nfs_mamont::protocol::rpc;
-use nfs_mamont::protocol::rpc::Context;
-use nfs_mamont::xdr::portmap::{mapping, IPPROTO_TCP, IPPROTO_UDP};
-use nfs_mamont::xdr::rpc::call_body;
-use nfs_mamont::xdr::{self, deserialize, nfs3, Serialize};
+use fernfs::protocol::nfs::portmap::PortmapTable;
+use fernfs::protocol::rpc;
+use fernfs::protocol::rpc::Context;
+use fernfs::xdr::portmap::{mapping, IPPROTO_TCP, IPPROTO_UDP};
+use fernfs::xdr::rpc::call_body;
+use fernfs::xdr::{self, deserialize, nfs3, Serialize};
 
 use support::DemoFS;
 
@@ -69,7 +69,7 @@ fn send_get_port(
 
     mapping_args.serialize(input)?;
     input.set_position(0);
-    nfs_mamont::protocol::nfs::portmap::handle_portmap(
+    fernfs::protocol::nfs::portmap::handle_portmap(
         u32::default(),
         &body,
         input,
@@ -95,7 +95,7 @@ fn send_set_port(
     mapping_args.serialize(input)?;
 
     input.set_position(0);
-    nfs_mamont::protocol::nfs::portmap::handle_portmap(
+    fernfs::protocol::nfs::portmap::handle_portmap(
         u32::default(),
         &body,
         input,
@@ -117,7 +117,7 @@ fn send_dump(
         cred: Default::default(),
         verf: Default::default(),
     };
-    nfs_mamont::protocol::nfs::portmap::handle_portmap(
+    fernfs::protocol::nfs::portmap::handle_portmap(
         u32::default(),
         &body,
         input,
@@ -142,7 +142,7 @@ fn send_unset_port(
 
     mapping_args.serialize(input)?;
     input.set_position(0);
-    nfs_mamont::protocol::nfs::portmap::handle_portmap(
+    fernfs::protocol::nfs::portmap::handle_portmap(
         u32::default(),
         &body,
         input,
@@ -196,7 +196,7 @@ fn call_assert<F, T>(
 
 #[cfg(test)]
 mod tests {
-    use nfs_mamont::xdr::portmap::pmaplist;
+    use fernfs::xdr::portmap::pmaplist;
 
     use super::*;
     /// simple test to assure, that result of GET_PORT operation is zero,

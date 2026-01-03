@@ -6,11 +6,11 @@ use std::time::Duration;
 use async_trait::async_trait;
 use num_traits::FromPrimitive;
 
-use nfs_mamont::protocol::nfs::portmap::PortmapTable;
-use nfs_mamont::protocol::nfs::v3::handle_nfs;
-use nfs_mamont::protocol::rpc::{Context, TransactionTracker};
-use nfs_mamont::vfs::{self, Capabilities, NFSFileSystem, ReadDirResult};
-use nfs_mamont::xdr::{self, nfs3, Serialize};
+use fernfs::protocol::nfs::portmap::PortmapTable;
+use fernfs::protocol::nfs::v3::handle_nfs;
+use fernfs::protocol::rpc::{Context, TransactionTracker};
+use fernfs::vfs::{self, Capabilities, NFSFileSystem, ReadDirResult};
+use fernfs::xdr::{self, nfs3, Serialize};
 
 const ROOT_ID: nfs3::fileid3 = 1;
 
