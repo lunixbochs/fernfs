@@ -3,24 +3,18 @@ use std::string::ToString;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
-use async_trait::async_trait;
+mod support;
+
 use num_traits::ToPrimitive;
 
 use nfs_mamont::protocol::nfs::portmap::PortmapTable;
 use nfs_mamont::protocol::rpc;
 use nfs_mamont::protocol::rpc::Context;
-use nfs_mamont::vfs::{Capabilities, ReadDirResult};
-use nfs_mamont::xdr::nfs3::{
-    fattr3, fileid3, filename3, ftype3, nfspath3, nfsstat3, sattr3, specdata3,
-};
 use nfs_mamont::xdr::portmap::{mapping, IPPROTO_TCP, IPPROTO_UDP};
 use nfs_mamont::xdr::rpc::call_body;
-use nfs_mamont::xdr::{deserialize, nfs3, Serialize};
-use nfs_mamont::{vfs, xdr};
+use nfs_mamont::xdr::{self, deserialize, nfs3, Serialize};
 
-pub struct DemoFS {
-    _root: String,
-}
+use support::DemoFS;
 
 const RPC_MSG_SIZE: u64 = 24;
 const OUTPUT_SIZE: usize = 28;
@@ -31,136 +25,6 @@ const DEFAULT_PORT: u16 = 0;
 const DEFAULT_EXPORT_NAME: &str = "default_name";
 const DEFAULT_ADDRESS: &str = "0.0.0.0:111";
 
-#[async_trait]
-impl vfs::NFSFileSystem for DemoFS {
-    fn generation(&self) -> u64 {
-        unimplemented!()
-    }
-
-    fn capabilities(&self) -> Capabilities {
-        unimplemented!()
-    }
-
-    fn root_dir(&self) -> fileid3 {
-        unimplemented!()
-    }
-
-    async fn lookup(&self, _dirid: fileid3, _filename: &filename3) -> Result<fileid3, nfsstat3> {
-        unimplemented!()
-    }
-
-    async fn getattr(&self, _id: fileid3) -> Result<fattr3, nfsstat3> {
-        unimplemented!()
-    }
-
-    async fn setattr(&self, _id: fileid3, _setattr: sattr3) -> Result<fattr3, nfsstat3> {
-        unimplemented!()
-    }
-
-    async fn read(
-        &self,
-        _id: fileid3,
-        _offset: u64,
-        _count: u32,
-    ) -> Result<(Vec<u8>, bool), nfsstat3> {
-        unimplemented!()
-    }
-
-    async fn write(&self, _id: fileid3, _offset: u64, _data: &[u8]) -> Result<fattr3, nfsstat3> {
-        unimplemented!()
-    }
-
-    async fn create(
-        &self,
-        _dirid: fileid3,
-        _filename: &filename3,
-        _attr: sattr3,
-    ) -> Result<(fileid3, fattr3), nfsstat3> {
-        unimplemented!()
-    }
-
-    async fn create_exclusive(
-        &self,
-        _dirid: fileid3,
-        _filename: &filename3,
-    ) -> Result<fileid3, nfsstat3> {
-        unimplemented!()
-    }
-
-    async fn mkdir(
-        &self,
-        _dirid: fileid3,
-        _dirname: &filename3,
-    ) -> Result<(fileid3, fattr3), nfsstat3> {
-        unimplemented!()
-    }
-
-    async fn remove(&self, _dirid: fileid3, _filename: &filename3) -> Result<(), nfsstat3> {
-        unimplemented!()
-    }
-
-    async fn rename(
-        &self,
-        _from_dirid: fileid3,
-        _from_filename: &filename3,
-        _to_dirid: fileid3,
-        _to_filename: &filename3,
-    ) -> Result<(), nfsstat3> {
-        unimplemented!()
-    }
-
-    async fn readdir(
-        &self,
-        _dirid: fileid3,
-        _start_after: fileid3,
-        _max_entries: usize,
-    ) -> Result<ReadDirResult, nfsstat3> {
-        unimplemented!()
-    }
-
-    async fn symlink(
-        &self,
-        _dirid: fileid3,
-        _linkname: &filename3,
-        _symlink: &nfspath3,
-        _attr: &sattr3,
-    ) -> Result<(fileid3, fattr3), nfsstat3> {
-        unimplemented!()
-    }
-
-    async fn readlink(&self, _id: fileid3) -> Result<nfspath3, nfsstat3> {
-        unimplemented!()
-    }
-
-    async fn link(
-        &self,
-        _file_id: fileid3,
-        _link_dir_id: fileid3,
-        _link_name: &filename3,
-    ) -> Result<fattr3, nfsstat3> {
-        unimplemented!()
-    }
-
-    async fn mknod(
-        &self,
-        _dir_id: fileid3,
-        _name: &filename3,
-        _ftype: ftype3,
-        _specdata: specdata3,
-        _attrs: &sattr3,
-    ) -> Result<(fileid3, fattr3), nfsstat3> {
-        unimplemented!()
-    }
-
-    async fn commit(
-        &self,
-        _file_id: fileid3,
-        _offset: u64,
-        _count: u32,
-    ) -> Result<fattr3, nfsstat3> {
-        unimplemented!()
-    }
-}
 
 fn multiple_mappings(amount: u32, prot: u32) -> Vec<mapping> {
     let mut result = Vec::<mapping>::with_capacity(amount as usize);
@@ -178,7 +42,7 @@ fn multiple_contexts(amount: u32) -> Vec<Context> {
             local_port: DEFAULT_PROG,
             client_addr: format!("0.0.0.0:{}", i),
             auth: xdr::rpc::auth_unix::default(),
-            vfs: Arc::new(DemoFS { _root: String::default() }),
+            vfs: Arc::new(DemoFS::default()),
             mount_signal: None,
             export_name: Arc::from(DEFAULT_EXPORT_NAME.to_string()),
             transaction_tracker: Arc::new(rpc::TransactionTracker::new(Duration::from_secs(60))),
@@ -342,7 +206,7 @@ mod tests {
             local_port: DEFAULT_PORT,
             client_addr: DEFAULT_ADDRESS.to_string(),
             auth: xdr::rpc::auth_unix::default(),
-            vfs: Arc::new(DemoFS { _root: String::default() }),
+            vfs: Arc::new(DemoFS::default()),
             mount_signal: None,
             export_name: Arc::from(DEFAULT_EXPORT_NAME.to_string()),
             transaction_tracker: Arc::new(rpc::TransactionTracker::new(Duration::from_secs(60))),
@@ -366,7 +230,7 @@ mod tests {
             local_port: DEFAULT_PORT,
             client_addr: DEFAULT_ADDRESS.to_string(),
             auth: xdr::rpc::auth_unix::default(),
-            vfs: Arc::new(DemoFS { _root: String::default() }),
+            vfs: Arc::new(DemoFS::default()),
             mount_signal: None,
             export_name: Arc::from(DEFAULT_EXPORT_NAME.to_string()),
             transaction_tracker: Arc::new(rpc::TransactionTracker::new(Duration::from_secs(60))),
@@ -396,7 +260,7 @@ mod tests {
             local_port: DEFAULT_PORT,
             client_addr: DEFAULT_ADDRESS.to_string(),
             auth: xdr::rpc::auth_unix::default(),
-            vfs: Arc::new(DemoFS { _root: String::default() }),
+            vfs: Arc::new(DemoFS::default()),
             mount_signal: None,
             export_name: Arc::from(DEFAULT_EXPORT_NAME.to_string()),
             transaction_tracker: Arc::new(rpc::TransactionTracker::new(Duration::from_secs(60))),
@@ -422,7 +286,7 @@ mod tests {
             local_port: DEFAULT_PORT,
             client_addr: DEFAULT_ADDRESS.to_string(),
             auth: xdr::rpc::auth_unix::default(),
-            vfs: Arc::new(DemoFS { _root: String::default() }),
+            vfs: Arc::new(DemoFS::default()),
             mount_signal: None,
             export_name: Arc::from(DEFAULT_EXPORT_NAME.to_string()),
             transaction_tracker: Arc::new(rpc::TransactionTracker::new(Duration::from_secs(60))),
@@ -526,7 +390,7 @@ mod tests {
             local_port: DEFAULT_PORT,
             client_addr: DEFAULT_ADDRESS.to_string(),
             auth: xdr::rpc::auth_unix::default(),
-            vfs: Arc::new(DemoFS { _root: String::default() }),
+            vfs: Arc::new(DemoFS::default()),
             mount_signal: None,
             export_name: Arc::from(DEFAULT_EXPORT_NAME.to_string()),
             transaction_tracker: Arc::new(rpc::TransactionTracker::new(Duration::from_secs(60))),
@@ -548,7 +412,7 @@ mod tests {
             local_port: DEFAULT_PORT,
             client_addr: DEFAULT_ADDRESS.to_string(),
             auth: xdr::rpc::auth_unix::default(),
-            vfs: Arc::new(DemoFS { _root: String::default() }),
+            vfs: Arc::new(DemoFS::default()),
             mount_signal: None,
             export_name: Arc::from(DEFAULT_EXPORT_NAME.to_string()),
             transaction_tracker: Arc::new(rpc::TransactionTracker::new(Duration::from_secs(60))),
@@ -574,7 +438,7 @@ mod tests {
             local_port: DEFAULT_PORT,
             client_addr: DEFAULT_ADDRESS.to_string(),
             auth: xdr::rpc::auth_unix::default(),
-            vfs: Arc::new(DemoFS { _root: String::default() }),
+            vfs: Arc::new(DemoFS::default()),
             mount_signal: None,
             export_name: Arc::from(DEFAULT_EXPORT_NAME.to_string()),
             transaction_tracker: Arc::new(rpc::TransactionTracker::new(Duration::from_secs(60))),
@@ -683,7 +547,7 @@ mod tests {
             local_port: DEFAULT_PORT,
             client_addr: DEFAULT_ADDRESS.to_string(),
             auth: xdr::rpc::auth_unix::default(),
-            vfs: Arc::new(DemoFS { _root: String::default() }),
+            vfs: Arc::new(DemoFS::default()),
             mount_signal: None,
             export_name: Arc::from(DEFAULT_EXPORT_NAME.to_string()),
             transaction_tracker: Arc::new(rpc::TransactionTracker::new(Duration::from_secs(60))),
