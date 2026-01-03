@@ -39,4 +39,4 @@ pub const MAX_BLOCK_SIZE: usize = 4 * 1024 * 1024;
 pub const PAGE_SIZE: usize = 4096;
 /// Max RPC record length for TCP (roundup(MAX_BLOCK_SIZE + PAGE_SIZE, PAGE_SIZE)).
 pub const MAX_RPC_RECORD_LENGTH: usize =
-    ((MAX_BLOCK_SIZE + PAGE_SIZE + PAGE_SIZE - 1) / PAGE_SIZE) * PAGE_SIZE;
+    (MAX_BLOCK_SIZE + PAGE_SIZE).div_ceil(PAGE_SIZE) * PAGE_SIZE;
