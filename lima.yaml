@@ -57,7 +57,7 @@ provision:
     script: |
       #!/bin/bash -eux
       apt-get update
-      apt-get -y install build-essential git cmake curl ca-certificates nfs-kernel-server nfs-common rpcbind pkg-config libnsl-dev
+      apt-get -y install build-essential git cmake curl ca-certificates nfs-kernel-server nfs-common rpcbind pkg-config libnsl-dev autoconf automake
       usermod -aG sudo user
 
       sudo -Hu user bash -lc 'curl https://sh.rustup.rs -sSf | sh -s -- -y'
@@ -65,10 +65,13 @@ provision:
       sudo -Hu user bash -lc 'source "$HOME/.cargo/env" && cd /mnt/app && cargo build --examples'
 
       cd /home/user
-      sudo -u user git clone https://github.com/phdeniel/cthon04'
-      sudo -u user git clone --recursive https://github.com/nfs-ganesha/nfs-ganesha'
+      sudo -u user git clone https://github.com/phdeniel/cthon04
+      sudo -u user git clone --recursive https://github.com/nfs-ganesha/nfs-ganesha
+      sudo -u user git clone https://github.com/pjd/pjdfstest.git
+      sed -i 's/sleep 10/sleep 0.1/g' /home/user/nfs-ganesha/src/scripts/test_through_mountpoint/test_create_ls.sh
       cd /home/user/cthon04
       sudo -u user make CFLAGS="-DLINUX -DHAVE_SOCKLEN_T -DGLIBC=22 -DMMAP -DSTDARG $(pkg-config --cflags libtirpc)" LIBS="-ltirpc -lnsl -lm"
+      sudo -u user bash -lc 'cd "$HOME/pjdfstest" && autoreconf -ifs && ./configure && make pjdfstest'
       sudo chown root:root domount
       sudo chmod +s domount
 
