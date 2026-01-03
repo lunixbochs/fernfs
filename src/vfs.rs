@@ -212,20 +212,24 @@ pub trait NFSFileSystem: Sync {
     /// This method writes data to a file starting at the specified offset.
     /// If the write extends beyond the current file size, the file should be extended.
     /// Read-only file systems should return NFS3ERR_ROFS.
+    /// The `stable` parameter indicates the requested write stability level.
     ///
     /// # Arguments
     /// * `id` - The file ID to write to
     /// * `offset` - Byte offset within the file to start writing
     /// * `data` - The data to write
+    /// * `stable` - Requested write stability
     ///
     /// # Returns
-    /// * `Result<fattr3, nfsstat3>` - The updated file attributes on success, or an NFS error code
+    /// * `Result<(fattr3, stable_how), nfsstat3>` - The updated file attributes and
+    ///   actual stability level on success, or an NFS error code
     async fn write(
         &self,
         id: nfs3::fileid3,
         offset: u64,
         data: &[u8],
-    ) -> Result<nfs3::fattr3, nfs3::nfsstat3>;
+        stable: nfs3::file::stable_how,
+    ) -> Result<(nfs3::fattr3, nfs3::file::stable_how), nfs3::nfsstat3>;
 
     /// Creates a new file with the specified attributes
     ///
@@ -249,11 +253,13 @@ pub trait NFSFileSystem: Sync {
     /// Creates a file if it doesn't exist (exclusive creation)
     ///
     /// This method creates a new file only if it doesn't already exist.
+    /// The verifier is used to make the operation idempotent across retries.
     /// Read-only file systems should return NFS3ERR_ROFS.
     ///
     /// # Arguments
     /// * `dirid` - The parent directory ID
     /// * `filename` - The name for the new file
+    /// * `verifier` - Client-supplied exclusive create verifier
     ///
     /// # Returns
     /// * `Result<fileid3, nfsstat3>` - The new file's ID on success, or an NFS error code
@@ -261,6 +267,7 @@ pub trait NFSFileSystem: Sync {
         &self,
         dirid: nfs3::fileid3,
         filename: &nfs3::filename3,
+        verifier: nfs3::createverf3,
     ) -> Result<nfs3::fileid3, nfs3::nfsstat3>;
 
     /// Creates a new directory

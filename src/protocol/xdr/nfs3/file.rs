@@ -100,7 +100,7 @@ SerializeStruct!(LINK3args, file, link);
 /// Enumeration specifying how data should be written to storage
 /// as defined in RFC 1813 section 3.3.7
 #[allow(non_camel_case_types)]
-#[derive(Copy, Clone, Debug, Default, FromPrimitive, ToPrimitive)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, FromPrimitive, ToPrimitive)]
 #[repr(u32)]
 pub enum stable_how {
     /// Data may be buffered before writing to stable storage

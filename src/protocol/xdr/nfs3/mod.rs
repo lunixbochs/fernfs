@@ -127,7 +127,7 @@ impl Deserialize for nfsstring {
 /// Procedure numbers for NFS version 3 protocol.
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Copy, Clone, Debug, FromPrimitive, ToPrimitive)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, ToPrimitive)]
 pub enum NFSProgram {
     /// Do nothing - used primarily for performance measurement
     NFSPROC3_NULL = 0,
@@ -221,7 +221,7 @@ pub type count3 = u32;
 
 /// Status codes returned by NFS version 3 operations
 #[allow(non_camel_case_types)]
-#[derive(Copy, Clone, Debug, FromPrimitive, ToPrimitive)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, ToPrimitive)]
 #[repr(u32)]
 pub enum nfsstat3 {
     /// Indicates the call completed successfully.

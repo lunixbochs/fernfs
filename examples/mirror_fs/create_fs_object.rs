@@ -1,4 +1,4 @@
-use nfs_mamont::xdr::nfs3::{nfspath3, sattr3};
+use nfs_mamont::xdr::nfs3::{createverf3, nfspath3, sattr3};
 
 /// Enumeration for the create_fs_object method
 pub enum CreateFSObject {
@@ -6,8 +6,8 @@ pub enum CreateFSObject {
     Directory,
     /// Creates a file with a set of attributes
     File(sattr3),
-    /// Creates an exclusive file with a set of attributes
-    Exclusive,
+    /// Creates an exclusive file with a verifier
+    Exclusive(createverf3),
     /// Creates a symlink with a set of attributes to a target location
     Symlink((sattr3, nfspath3)),
 }
@@ -25,7 +25,7 @@ impl CreateFSObject {
 
     /// Checks if the object is an exclusive file
     pub fn is_exclusive(&self) -> bool {
-        matches!(self, CreateFSObject::Exclusive)
+        matches!(self, CreateFSObject::Exclusive(_))
     }
 
     /// Checks if the object is a symlink

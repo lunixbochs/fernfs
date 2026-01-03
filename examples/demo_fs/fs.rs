@@ -70,7 +70,8 @@ impl vfs::NFSFileSystem for DemoFS {
         id: nfs3::fileid3,
         offset: u64,
         data: &[u8],
-    ) -> Result<nfs3::fattr3, nfs3::nfsstat3> {
+        _stable: nfs3::file::stable_how,
+    ) -> Result<(nfs3::fattr3, nfs3::file::stable_how), nfs3::nfsstat3> {
         {
             let mut fs = self.fs.lock().unwrap();
 
@@ -108,7 +109,7 @@ impl vfs::NFSFileSystem for DemoFS {
             }
         }
 
-        self.getattr(id).await
+        Ok((self.getattr(id).await?, nfs3::file::stable_how::FILE_SYNC))
     }
 
     /// Creates a new file in the specified directory.
@@ -136,6 +137,7 @@ impl vfs::NFSFileSystem for DemoFS {
         &self,
         _dirid: nfs3::fileid3,
         _filename: &nfs3::filename3,
+        _verifier: nfs3::createverf3,
     ) -> Result<nfs3::fileid3, nfs3::nfsstat3> {
         Err(nfs3::nfsstat3::NFS3ERR_NOTSUPP)
     }

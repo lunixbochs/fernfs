@@ -1,5 +1,5 @@
 use std::ffi::OsStr;
-use std::io::SeekFrom;
+use std::io::{ErrorKind, SeekFrom};
 use std::ops::Bound;
 use std::os::unix::ffi::OsStrExt;
 use std::path::PathBuf;
@@ -33,6 +33,25 @@ impl MirrorFS {
         Self { fsmap: tokio::sync::Mutex::new(FSMap::new(root)), generation: now as u64 }
     }
 
+    async fn check_exclusive_existing(
+        fsmap: &FSMap,
+        dirid: nfs3::fileid3,
+        objectname: &nfs3::filename3,
+        verifier: &nfs3::createverf3,
+        path: &PathBuf,
+    ) -> NFSResult<Option<(nfs3::fileid3, nfs3::fattr3)>> {
+        if let Ok(existing_id) = fsmap.find_child(dirid, objectname.as_ref()).await {
+            if let Ok(entry) = fsmap.find_entry(existing_id) {
+                if entry.exclusive_verifier == Some(*verifier) {
+                    let meta =
+                        path.symlink_metadata().map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
+                    return Ok(Some((existing_id, metadata_to_fattr3(existing_id, &meta))));
+                }
+            }
+        }
+        Ok(None)
+    }
+
     /// Creates a file system object in a given directory and of a given type
     /// Updates as much metadata as we can in-place
     async fn create_fs_object(
@@ -47,6 +66,23 @@ impl MirrorFS {
         let objectname_osstr = OsStr::from_bytes(objectname).to_os_string();
         path.push(&objectname_osstr);
 
+        if let CreateFSObject::Exclusive(verifier) = object {
+            if exists_no_traverse(&path) {
+                if let Some(existing) = Self::check_exclusive_existing(
+                    &fsmap,
+                    dirid,
+                    objectname,
+                    verifier,
+                    &path,
+                )
+                .await?
+                {
+                    return Ok(existing);
+                }
+                return Err(nfs3::nfsstat3::NFS3ERR_EXIST);
+            }
+        }
+
         match object {
             CreateFSObject::Directory => {
                 debug!("mkdir {:?}", path);
@@ -60,13 +96,28 @@ impl MirrorFS {
                 let file = std::fs::File::create(&path).map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
                 let _ = file_setattr(&file, setattr).await;
             }
-            CreateFSObject::Exclusive => {
+            CreateFSObject::Exclusive(verifier) => {
                 debug!("create exclusive {:?}", path);
-                let _ = std::fs::File::options()
-                    .write(true)
-                    .create_new(true)
-                    .open(&path)
-                    .map_err(|_| nfs3::nfsstat3::NFS3ERR_EXIST)?;
+                match std::fs::File::options().write(true).create_new(true).open(&path) {
+                    Ok(_) => {}
+                    Err(err) => {
+                        if err.kind() == ErrorKind::AlreadyExists {
+                            if let Some(existing) = Self::check_exclusive_existing(
+                                &fsmap,
+                                dirid,
+                                objectname,
+                                verifier,
+                                &path,
+                            )
+                            .await?
+                            {
+                                return Ok(existing);
+                            }
+                            return Err(nfs3::nfsstat3::NFS3ERR_EXIST);
+                        }
+                        return Err(nfs3::nfsstat3::NFS3ERR_IO);
+                    }
+                }
             }
             CreateFSObject::Symlink((_, target)) => {
                 debug!("symlink {:?} {:?}", path, target);
@@ -93,6 +144,11 @@ impl MirrorFS {
             fsmap.id_to_path.get_mut(&dirid).ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?.children
         {
             children.insert(fileid);
+        }
+        if let CreateFSObject::Exclusive(verifier) = object {
+            if let Some(entry) = fsmap.id_to_path.get_mut(&fileid) {
+                entry.exclusive_verifier = Some(*verifier);
+            }
         }
         Ok((fileid, metadata_to_fattr3(fileid, &meta)))
     }
@@ -248,7 +304,13 @@ impl vfs::NFSFileSystem for MirrorFS {
     }
 
     /// Writes data to a file
-    async fn write(&self, id: nfs3::fileid3, offset: u64, data: &[u8]) -> NFSResult<nfs3::fattr3> {
+    async fn write(
+        &self,
+        id: nfs3::fileid3,
+        offset: u64,
+        data: &[u8],
+        _stable: nfs3::file::stable_how,
+    ) -> NFSResult<(nfs3::fattr3, nfs3::file::stable_how)> {
         let fsmap = self.fsmap.lock().await;
         let ent = fsmap.find_entry(id)?;
         let path = fsmap.sym_to_path(&ent.name).await;
@@ -273,7 +335,7 @@ impl vfs::NFSFileSystem for MirrorFS {
         let _ = f.flush().await;
         let _ = f.sync_all().await;
         let meta = f.metadata().await.or(Err(nfs3::nfsstat3::NFS3ERR_IO))?;
-        Ok(metadata_to_fattr3(id, &meta))
+        Ok((metadata_to_fattr3(id, &meta), nfs3::file::stable_how::FILE_SYNC))
     }
 
     /// Creates a file in a directory
@@ -289,10 +351,13 @@ impl vfs::NFSFileSystem for MirrorFS {
     /// Creates an exclusive file in a directory
     async fn create_exclusive(
         &self,
-        dirid: nfs3::fileid3,
-        filename: &nfs3::filename3,
+        _dirid: nfs3::fileid3,
+        _filename: &nfs3::filename3,
+        _verifier: nfs3::createverf3,
     ) -> NFSResult<nfs3::fileid3> {
-        Ok(self.create_fs_object(dirid, filename, &CreateFSObject::Exclusive).await?.0)
+        // RFC 1813 requires storing the EXCLUSIVE verifier in stable storage;
+        // MirrorFS does not persist it, so we must report NOTSUPP.
+        Err(nfs3::nfsstat3::NFS3ERR_NOTSUPP)
     }
 
     /// Removes a file from a directory

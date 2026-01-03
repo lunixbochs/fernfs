@@ -18,6 +18,7 @@
 
 use std::io::{Read, Write};
 
+use num_traits::FromPrimitive;
 use tracing::{debug, error, warn};
 
 use crate::protocol::rpc;
@@ -80,8 +81,16 @@ pub async fn nfsproc3_write(
         .map(|v| nfs3::wcc_attr { size: v.size, mtime: v.mtime, ctime: v.ctime })
         .ok();
 
-    match context.vfs.write(id, args.offset, &args.data).await {
-        Ok(fattr) => {
+    let stable = match nfs3::file::stable_how::from_u32(args.stable) {
+        Some(stable) => stable,
+        None => {
+            xdr::rpc::garbage_args_reply_message(xid).serialize(output)?;
+            return Ok(());
+        }
+    };
+
+    match context.vfs.write(id, args.offset, &args.data, stable).await {
+        Ok((fattr, committed)) => {
             debug!("write success {:?} --> {:?}", xid, fattr);
             let res = nfs3::file::WRITE3resok {
                 file_wcc: nfs3::wcc_data {
@@ -89,7 +98,7 @@ pub async fn nfsproc3_write(
                     after: nfs3::post_op_attr::Some(fattr),
                 },
                 count: args.count,
-                committed: nfs3::file::stable_how::FILE_SYNC,
+                committed,
                 verf: context.vfs.server_id(),
             };
             xdr::rpc::make_success_reply(xid).serialize(output)?;

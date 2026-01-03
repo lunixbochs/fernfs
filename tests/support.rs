@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 
 use nfs_mamont::vfs::{self, Capabilities, ReadDirResult};
+use nfs_mamont::xdr::nfs3;
 use nfs_mamont::xdr::nfs3::{
     fattr3, fileid3, filename3, ftype3, nfspath3, nfsstat3, sattr3, specdata3,
 };
@@ -43,7 +44,13 @@ impl vfs::NFSFileSystem for DemoFS {
         Err(nfsstat3::NFS3ERR_NOTSUPP)
     }
 
-    async fn write(&self, _id: fileid3, _offset: u64, _data: &[u8]) -> Result<fattr3, nfsstat3> {
+    async fn write(
+        &self,
+        _id: fileid3,
+        _offset: u64,
+        _data: &[u8],
+        _stable: nfs3::file::stable_how,
+    ) -> Result<(fattr3, nfs3::file::stable_how), nfsstat3> {
         Err(nfsstat3::NFS3ERR_NOTSUPP)
     }
 
@@ -60,6 +67,7 @@ impl vfs::NFSFileSystem for DemoFS {
         &self,
         _dirid: fileid3,
         _filename: &filename3,
+        _verifier: nfs3::createverf3,
     ) -> Result<fileid3, nfsstat3> {
         Err(nfsstat3::NFS3ERR_NOTSUPP)
     }

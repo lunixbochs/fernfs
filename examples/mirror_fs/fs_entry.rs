@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use intaglio::Symbol;
-use nfs_mamont::xdr::nfs3::{fattr3, fileid3, ftype3};
+use nfs_mamont::xdr::nfs3::{createverf3, fattr3, fileid3, ftype3};
 
 /// A file system entry representing a file or directory
 #[derive(Debug, Clone)]
@@ -14,12 +14,14 @@ pub struct FSEntry {
     pub children_meta: fattr3,
     /// Optional set of child file IDs
     pub children: Option<BTreeSet<fileid3>>,
+    /// Optional verifier for exclusive creates
+    pub exclusive_verifier: Option<createverf3>,
 }
 
 impl FSEntry {
     /// Creates a new file system entry
     pub fn new(name: Vec<Symbol>, fsmeta: fattr3) -> Self {
-        Self { name, fsmeta, children_meta: fsmeta, children: None }
+        Self { name, fsmeta, children_meta: fsmeta, children: None, exclusive_verifier: None }
     }
 
     /// Checks if the entry is a directory
