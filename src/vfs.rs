@@ -327,12 +327,12 @@ pub trait NFSFileSystem: Sync {
 
     /// Reads directory entries with pagination support
     ///
-    /// This method retrieves a list of entries from a directory, starting after a specific entry.
+    /// This method retrieves a list of entries from a directory, starting at a cookie index.
     /// The directory listing should be deterministic and support resuming from any point.
     ///
     /// # Arguments
     /// * `dirid` - The directory ID to read
-    /// * `start_after` - The file ID after which to start listing (0 means start from beginning)
+    /// * `start_after` - Cookie index after which to start listing (0 means start from beginning)
     /// * `max_entries` - Maximum number of entries to return
     ///
     /// # Returns
@@ -385,7 +385,7 @@ pub trait NFSFileSystem: Sync {
     ///
     /// # Arguments
     /// * `dirid` - The directory ID to read
-    /// * `start_after` - The file ID after which to start listing (0 means start from beginning)
+    /// * `start_after` - Cookie index after which to start listing (0 means start from beginning)
     /// * `count` - Maximum number of entries to return
     ///
     /// # Returns
@@ -509,6 +509,86 @@ pub trait NFSFileSystem: Sync {
         count: u32,
     ) -> Result<nfs3::fattr3, nfs3::nfsstat3>;
 
+    /// Returns the maximum size in bytes of a READ request for FSINFO.
+    fn fsinfo_rtmax(&self) -> u32 {
+        1024 * 1024
+    }
+
+    /// Returns the preferred size in bytes of a READ request for FSINFO.
+    fn fsinfo_rtpref(&self) -> u32 {
+        1024 * 124
+    }
+
+    /// Returns the suggested multiple for READ sizes for FSINFO.
+    fn fsinfo_rtmult(&self) -> u32 {
+        1024 * 1024
+    }
+
+    /// Returns the maximum size in bytes of a WRITE request for FSINFO.
+    fn fsinfo_wtmax(&self) -> u32 {
+        1024 * 1024
+    }
+
+    /// Returns the preferred size in bytes of a WRITE request for FSINFO.
+    fn fsinfo_wtpref(&self) -> u32 {
+        1024 * 1024
+    }
+
+    /// Returns the suggested multiple for WRITE sizes for FSINFO.
+    fn fsinfo_wtmult(&self) -> u32 {
+        1024 * 1024
+    }
+
+    /// Returns the preferred size of a READDIR request for FSINFO.
+    fn fsinfo_dtpref(&self) -> u32 {
+        1024 * 1024
+    }
+
+    /// Returns the maximum size of a file for FSINFO.
+    fn fsinfo_maxfilesize(&self) -> nfs3::size3 {
+        128 * 1024 * 1024 * 1024
+    }
+
+    /// Returns the server time granularity for FSINFO.
+    fn fsinfo_time_delta(&self) -> nfs3::nfstime3 {
+        nfs3::nfstime3 { seconds: 0, nseconds: 1_000_000 }
+    }
+
+    /// Returns the FSINFO properties bitmask.
+    fn fsinfo_properties(&self) -> u32 {
+        nfs3::fs::FSF_SYMLINK | nfs3::fs::FSF_HOMOGENEOUS | nfs3::fs::FSF_CANSETTIME
+    }
+
+    /// Returns the maximum number of hard links to an object for PATHCONF.
+    fn pathconf_linkmax(&self) -> u32 {
+        0
+    }
+
+    /// Returns the maximum name length for PATHCONF.
+    fn pathconf_name_max(&self) -> u32 {
+        32768
+    }
+
+    /// Returns the truncation behavior for PATHCONF.
+    fn pathconf_no_trunc(&self) -> bool {
+        true
+    }
+
+    /// Returns the ownership change restriction for PATHCONF.
+    fn pathconf_chown_restricted(&self) -> bool {
+        true
+    }
+
+    /// Returns the case sensitivity flag for PATHCONF.
+    fn pathconf_case_insensitive(&self) -> bool {
+        false
+    }
+
+    /// Returns the case preservation flag for PATHCONF.
+    fn pathconf_case_preserving(&self) -> bool {
+        true
+    }
+
     /// Retrieves static file system information
     ///
     /// This method provides information about the file system's capabilities and parameters.
@@ -527,18 +607,16 @@ pub trait NFSFileSystem: Sync {
 
         let res = nfs3::fs::fsinfo3 {
             obj_attributes: dir_attr,
-            rtmax: 1024 * 1024,
-            rtpref: 1024 * 124,
-            rtmult: 1024 * 1024,
-            wtmax: 1024 * 1024,
-            wtpref: 1024 * 1024,
-            wtmult: 1024 * 1024,
-            dtpref: 1024 * 1024,
-            maxfilesize: 128 * 1024 * 1024 * 1024,
-            time_delta: nfs3::nfstime3 { seconds: 0, nseconds: 1_000_000 },
-            properties: nfs3::fs::FSF_SYMLINK
-                | nfs3::fs::FSF_HOMOGENEOUS
-                | nfs3::fs::FSF_CANSETTIME,
+            rtmax: self.fsinfo_rtmax(),
+            rtpref: self.fsinfo_rtpref(),
+            rtmult: self.fsinfo_rtmult(),
+            wtmax: self.fsinfo_wtmax(),
+            wtpref: self.fsinfo_wtpref(),
+            wtmult: self.fsinfo_wtmult(),
+            dtpref: self.fsinfo_dtpref(),
+            maxfilesize: self.fsinfo_maxfilesize(),
+            time_delta: self.fsinfo_time_delta(),
+            properties: self.fsinfo_properties(),
         };
         Ok(res)
     }

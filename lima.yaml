@@ -71,6 +71,8 @@ provision:
       sed -i 's/sleep 10/sleep 0.1/g' /home/user/nfs-ganesha/src/scripts/test_through_mountpoint/test_create_ls.sh
       cd /home/user/cthon04
       sudo -u user make CFLAGS="-DLINUX -DHAVE_SOCKLEN_T -DGLIBC=22 -DMMAP -DSTDARG $(pkg-config --cflags libtirpc)" LIBS="-ltirpc -lnsl -lm"
+      # disable chmod 0 test, as we're running in userland without CAP_DAC_OVERRIDE
+      sed -i 's/^TMPDIR= \\.\\/op_chmod$/# TMPDIR= .\\/op_chmod/' /home/user/cthon04/special/runtests.wrk
       sudo -u user bash -lc 'cd "$HOME/pjdfstest" && autoreconf -ifs && ./configure && make pjdfstest'
       sudo chown root:root domount
       sudo chmod +s domount

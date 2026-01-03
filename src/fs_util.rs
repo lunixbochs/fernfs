@@ -57,7 +57,10 @@ pub fn fattr3_differ(lhs: &nfs3::fattr3, rhs: &nfs3::fattr3) -> bool {
     lhs.fileid != rhs.fileid
         || lhs.mtime.seconds != rhs.mtime.seconds
         || lhs.mtime.nseconds != rhs.mtime.nseconds
+        || lhs.ctime.seconds != rhs.ctime.seconds
+        || lhs.ctime.nseconds != rhs.ctime.nseconds
         || lhs.size != rhs.size
+        || lhs.nlink != rhs.nlink
         || lhs.ftype as u32 != rhs.ftype as u32
 }
 
@@ -77,10 +80,10 @@ pub fn exists_no_traverse(path: &Path) -> bool {
     path.symlink_metadata().is_ok()
 }
 
-/// Unmasks file mode bits to ensure writability
+/// Normalizes file mode bits to standard permissions
 ///
-/// This function ensures that files can be written to by setting the write bit,
-/// and also ensures only the relevant permission bits (0o777) are used.
+/// This function strips non-permission bits and keeps only the standard
+/// permission bits (0o777).
 ///
 /// # Arguments
 ///
@@ -88,11 +91,8 @@ pub fn exists_no_traverse(path: &Path) -> bool {
 ///
 /// # Returns
 ///
-/// Modified file mode with appropriate permissions
+/// Normalized file mode with appropriate permissions
 fn mode_unmask(mode: u32) -> u32 {
-    // it is possible to create a file we cannot write to.
-    // we force writable always.
-    let mode = mode | 0x80;
     let mode = Permissions::from_mode(mode);
     mode.mode() & 0x1FF
 }
@@ -117,7 +117,7 @@ pub fn metadata_to_fattr3(fid: nfs3::fileid3, meta: &Metadata) -> nfs3::fattr3 {
         nfs3::fattr3 {
             ftype: nfs3::ftype3::NF3REG,
             mode: file_mode,
-            nlink: 1,
+            nlink: meta.nlink() as u32,
             uid: meta.uid(),
             gid: meta.gid(),
             size,
@@ -142,7 +142,7 @@ pub fn metadata_to_fattr3(fid: nfs3::fileid3, meta: &Metadata) -> nfs3::fattr3 {
         nfs3::fattr3 {
             ftype: nfs3::ftype3::NF3LNK,
             mode: file_mode,
-            nlink: 1,
+            nlink: meta.nlink() as u32,
             uid: meta.uid(),
             gid: meta.gid(),
             size,
@@ -167,7 +167,7 @@ pub fn metadata_to_fattr3(fid: nfs3::fileid3, meta: &Metadata) -> nfs3::fattr3 {
         nfs3::fattr3 {
             ftype: nfs3::ftype3::NF3DIR,
             mode: file_mode,
-            nlink: 2,
+            nlink: meta.nlink() as u32,
             uid: meta.uid(),
             gid: meta.gid(),
             size,

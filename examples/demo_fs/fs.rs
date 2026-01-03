@@ -270,8 +270,8 @@ impl vfs::NFSFileSystem for DemoFS {
         Err(nfs3::nfsstat3::NFS3ERR_NOENT)
     }
 
-    /// Reads directory entries, starting after the specified entry ID.
-    /// Returns a list of directory entries and an indicator if there are more entries.
+    /// Reads directory entries, starting after the specified cookie index.
+        /// Returns a list of directory entries and an indicator if there are more entries.
     async fn readdir(
         &self,
         dirid: nfs3::fileid3,
@@ -284,14 +284,16 @@ impl vfs::NFSFileSystem for DemoFS {
             return Err(nfs3::nfsstat3::NFS3ERR_NOTDIR);
         } else if let FSContents::Directory(dir) = &entry.contents {
             let mut ret = vfs::ReadDirResult { entries: Vec::new(), end: false };
-            let mut start_index = 0;
-            if start_after > 0 {
-                if let Some(pos) = dir.iter().position(|&r| r == start_after) {
-                    start_index = pos + 1;
-                } else {
+            let start_index = if start_after == 0 {
+                0
+            } else {
+                let idx = usize::try_from(start_after)
+                    .map_err(|_| nfs3::nfsstat3::NFS3ERR_BAD_COOKIE)?;
+                if idx > dir.len() {
                     return Err(nfs3::nfsstat3::NFS3ERR_BAD_COOKIE);
                 }
-            }
+                idx
+            };
             let remaining_length = dir.len() - start_index;
 
             for i in dir[start_index..].iter() {

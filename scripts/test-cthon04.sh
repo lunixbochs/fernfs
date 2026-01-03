@@ -15,4 +15,4 @@ cd ~/cthon04
 echo "----------------------------------------"
 echo "-- mamont tests"
 echo "----------------------------------------"
-./server -a 127.0.0.1 -o port=11111,mountport=11111,vers=3,proto=tcp -m /mnt/cthon04 -p /
+./server -a 127.0.0.1 -o port=11111,mountport=11111,vers=3,proto=tcp,nolock -m /mnt/cthon04 -p /

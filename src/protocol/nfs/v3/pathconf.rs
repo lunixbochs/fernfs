@@ -63,12 +63,12 @@ pub async fn nfsproc3_pathconf(
     let obj_attr = context.vfs.getattr(id).await.ok();
     let res = nfs3::fs::PATHCONF3resok {
         obj_attributes: obj_attr,
-        linkmax: 0,
-        name_max: 32768,
-        no_trunc: true,
-        chown_restricted: true,
-        case_insensitive: false,
-        case_preserving: true,
+        linkmax: context.vfs.pathconf_linkmax(),
+        name_max: context.vfs.pathconf_name_max(),
+        no_trunc: context.vfs.pathconf_no_trunc(),
+        chown_restricted: context.vfs.pathconf_chown_restricted(),
+        case_insensitive: context.vfs.pathconf_case_insensitive(),
+        case_preserving: context.vfs.pathconf_case_preserving(),
     };
     debug!(" {:?} ---> {:?}", xid, res);
     xdr::rpc::make_success_reply(xid).serialize(output)?;
