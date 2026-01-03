@@ -127,3 +127,54 @@ async fn returns_prog_mismatch_for_unsupported_nfs_version() {
         other => panic!("expected MSG_ACCEPTED, got {:?}", other),
     }
 }
+
+#[tokio::test]
+async fn retransmission_replays_response() {
+    let xid = 99;
+    let call = xdr::rpc::call_body {
+        rpcvers: 2,
+        prog: nfs3::PROGRAM,
+        vers: nfs3::VERSION,
+        proc: nfs3::NFSProgram::NFSPROC3_NULL as u32,
+        cred: xdr::rpc::opaque_auth::default(),
+        verf: xdr::rpc::opaque_auth::default(),
+    };
+    let msg = xdr::rpc::rpc_msg { xid, body: xdr::rpc::rpc_body::CALL(call) };
+    let mut msg_buf = Vec::new();
+    msg.serialize(&mut msg_buf).expect("serialize rpc_msg");
+
+    let (mut handler, mut socksend, mut msgrecv) = SocketMessageHandler::new(&test_context());
+    let fragment_header = (1_u32 << 31) | (msg_buf.len() as u32);
+
+    socksend
+        .write_all(&fragment_header.to_be_bytes())
+        .await
+        .expect("write fragment header");
+    socksend.write_all(&msg_buf).await.expect("write fragment body");
+    handler.read().await.expect("handler read");
+
+    let response = timeout(Duration::from_secs(1), msgrecv.recv())
+        .await
+        .expect("response timeout")
+        .expect("response channel closed")
+        .expect("response error");
+    let reply = xdr::deserialize::<xdr::rpc::rpc_msg>(&mut Cursor::new(response))
+        .expect("deserialize reply");
+    assert_eq!(reply.xid, xid);
+
+    socksend
+        .write_all(&fragment_header.to_be_bytes())
+        .await
+        .expect("write fragment header");
+    socksend.write_all(&msg_buf).await.expect("write fragment body");
+    handler.read().await.expect("handler read");
+
+    let response = timeout(Duration::from_secs(1), msgrecv.recv())
+        .await
+        .expect("response timeout")
+        .expect("response channel closed")
+        .expect("response error");
+    let reply = xdr::deserialize::<xdr::rpc::rpc_msg>(&mut Cursor::new(response))
+        .expect("deserialize reply");
+    assert_eq!(reply.xid, xid);
+}
