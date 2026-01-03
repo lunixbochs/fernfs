@@ -19,6 +19,7 @@
 
 use std::io::Cursor;
 use std::io::{Read, Write};
+use std::sync::Arc;
 
 use anyhow::anyhow;
 use tokio::io::AsyncReadExt;
@@ -47,6 +48,14 @@ const NFS_METADATA_PROGRAM: u32 = 200024;
 /// Initial size of RPC response buffer
 const DEFAULT_RESPONSE_BUFFER_CAPACITY: usize = 8192;
 
+/// Outcome of handling an RPC message.
+enum RpcOutcome {
+    /// A response was written to the output buffer.
+    Send { xid: u32, record_response: bool },
+    /// No response should be sent (e.g. in-progress retransmission).
+    Drop,
+}
+
 /// Processes a single RPC message
 ///
 /// This function forms the core of the RPC message dispatcher. It:
@@ -60,32 +69,37 @@ const DEFAULT_RESPONSE_BUFFER_CAPACITY: usize = 8192;
 /// This implementation follows RFC 5531 (previously RFC 1057) section on Authentication and
 /// Record Marking Standard for proper RPC message handling.
 ///
-/// Returns true if a response was sent, false otherwise (for retransmissions).
-pub async fn handle_rpc(
+/// Returns an outcome describing whether a response was sent or dropped.
+async fn handle_rpc(
     input: &mut impl Read,
     output: &mut impl Write,
     mut context: rpc::Context,
-) -> Result<bool, anyhow::Error> {
+) -> Result<RpcOutcome, anyhow::Error> {
     let recv = deserialize::<xdr::rpc::rpc_msg>(input)?;
     let xid = recv.xid;
     if let xdr::rpc::rpc_body::CALL(call) = recv.body {
         if let xdr::rpc::auth_flavor::AUTH_UNIX = call.cred.flavor {
             context.auth = deserialize(&mut Cursor::new(&call.cred.body))?;
         }
+        let status = context.transaction_tracker.check(xid, &context.client_addr);
+        match status {
+            rpc::TransactionStatus::Completed(response) => {
+                output.write_all(&response)?;
+                return Ok(RpcOutcome::Send { xid, record_response: false });
+            }
+            rpc::TransactionStatus::InProgress => {
+                debug!(
+                    "Retransmission in progress, xid: {}, client_addr: {}, call: {:?}",
+                    xid, context.client_addr, call
+                );
+                return Ok(RpcOutcome::Drop);
+            }
+            rpc::TransactionStatus::New => {}
+        }
         if call.rpcvers != 2 {
             warn!("Invalid RPC version {} != 2", call.rpcvers);
             xdr::rpc::rpc_vers_mismatch(xid).serialize(output)?;
-            return Ok(true);
-        }
-
-        if context.transaction_tracker.is_retransmission(xid, &context.client_addr) {
-            // This is a retransmission
-            // Drop the message and return
-            debug!(
-                "Retransmission detected, xid: {}, client_addr: {}, call: {:?}",
-                xid, context.client_addr, call
-            );
-            return Ok(false);
+            return Ok(RpcOutcome::Send { xid, record_response: true });
         }
 
         let res = {
@@ -124,10 +138,14 @@ pub async fn handle_rpc(
                     Ok(())
                 }
             }
+        };
+        match res {
+            Ok(()) => Ok(RpcOutcome::Send { xid, record_response: true }),
+            Err(e) => {
+                context.transaction_tracker.clear(xid, &context.client_addr);
+                Err(e)
+            }
         }
-        .map(|_| true);
-        context.transaction_tracker.mark_processed(xid, &context.client_addr);
-        res
     } else {
         error!("Unexpectedly received a Reply instead of a Call");
         Err(anyhow!("Bad RPC Call format"))
@@ -352,12 +370,21 @@ pub fn process_rpc_command<'a>(
 
         // Get internal buffer for writing
         let output_buffer = output.get_mut_buffer();
-        let mut output_cursor = Cursor::new(output_buffer);
+        let mut output_cursor = Cursor::new(&mut *output_buffer);
 
+        let tracker = context.transaction_tracker.clone();
+        let client_addr = context.client_addr.clone();
         // Call RPC handler
         let result = handle_rpc(&mut input_cursor, &mut output_cursor, context).await?;
 
-        // If response was generated, return true
-        Ok(result)
+        match result {
+            RpcOutcome::Send { xid, record_response } => {
+                if record_response && !output_buffer.is_empty() {
+                    tracker.record_response(xid, &client_addr, Arc::new(output_buffer.clone()));
+                }
+                Ok(true)
+            }
+            RpcOutcome::Drop => Ok(false),
+        }
     })
 }

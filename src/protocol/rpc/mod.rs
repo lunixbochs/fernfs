@@ -30,7 +30,7 @@ mod transaction_tracker;
 mod wire;
 
 pub use context::Context;
-pub use transaction_tracker::TransactionTracker;
+pub use transaction_tracker::{TransactionStatus, TransactionTracker};
 pub use wire::{write_fragment, SocketMessageHandler};
 
 /// Linux-compatible max NFS block size (RPCSVC_MAXPAYLOAD).

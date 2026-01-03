@@ -14,7 +14,7 @@
 //! operations (like file writes) could cause data corruption.
 
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
 /// Tracks RPC transactions to detect and handle retransmissions
@@ -28,6 +28,17 @@ pub struct TransactionTracker {
     transactions: Mutex<HashMap<(u32, String), TransactionState>>,
 }
 
+/// Status of a tracked transaction.
+#[derive(Debug)]
+pub enum TransactionStatus {
+    /// First time seeing this transaction; it is now marked in-progress.
+    New,
+    /// A request with the same XID is already in progress.
+    InProgress,
+    /// A completed request with a cached response.
+    Completed(Arc<Vec<u8>>),
+}
+
 impl TransactionTracker {
     /// Creates a new transaction tracker with specified retention period
     ///
@@ -38,37 +49,49 @@ impl TransactionTracker {
         Self { retention_period, transactions: Mutex::new(HashMap::new()) }
     }
 
-    /// Checks if a transaction is a retransmission
+    /// Checks transaction status and records new calls as in-progress.
     ///
     /// Identifies whether the transaction with given XID and client address
     /// has been seen before. If it's a new transaction, marks it as in-progress.
-    /// Returns true for retransmissions, false for new transactions.
-    pub fn is_retransmission(&self, xid: u32, client_addr: &str) -> bool {
+    pub fn check(&self, xid: u32, client_addr: &str) -> TransactionStatus {
         let key = (xid, client_addr.to_string());
         let mut transactions =
             self.transactions.lock().expect("unable to unlock transactions mutex");
         housekeeping(&mut transactions, self.retention_period);
-        if let std::collections::hash_map::Entry::Vacant(e) = transactions.entry(key) {
-            e.insert(TransactionState::InProgress);
-            false
-        } else {
-            true
+        match transactions.entry(key) {
+            std::collections::hash_map::Entry::Vacant(e) => {
+                e.insert(TransactionState::InProgress);
+                TransactionStatus::New
+            }
+            std::collections::hash_map::Entry::Occupied(mut entry) => match entry.get_mut() {
+                TransactionState::InProgress => TransactionStatus::InProgress,
+                TransactionState::Completed { completion_time, response } => {
+                    *completion_time = SystemTime::now();
+                    TransactionStatus::Completed(Arc::clone(response))
+                }
+            },
         }
     }
 
-    /// Marks a transaction as successfully processed
+    /// Records a completed transaction response for retransmission replay.
     ///
     /// Updates the state of a transaction from in-progress to completed,
     /// recording the completion time for retention period calculations.
     /// Called after a transaction has been fully processed and responded to.
-    pub fn mark_processed(&self, xid: u32, client_addr: &str) {
+    pub fn record_response(&self, xid: u32, client_addr: &str, response: Arc<Vec<u8>>) {
         let key = (xid, client_addr.to_string());
         let completion_time = SystemTime::now();
         let mut transactions =
             self.transactions.lock().expect("unable to unlock transactions mutex");
-        if let Some(tx) = transactions.get_mut(&key) {
-            *tx = TransactionState::Completed(completion_time);
-        }
+        transactions.insert(key, TransactionState::Completed { completion_time, response });
+    }
+
+    /// Clears a transaction entry so a later retry can be processed.
+    pub fn clear(&self, xid: u32, client_addr: &str) {
+        let key = (xid, client_addr.to_string());
+        let mut transactions =
+            self.transactions.lock().expect("unable to unlock transactions mutex");
+        transactions.remove(&key);
     }
 }
 
@@ -81,7 +104,7 @@ fn housekeeping(transactions: &mut HashMap<(u32, String), TransactionState>, max
     let mut cutoff = SystemTime::now() - max_age;
     transactions.retain(|_, v| match v {
         TransactionState::InProgress => true,
-        TransactionState::Completed(completion_time) => completion_time >= &mut cutoff,
+        TransactionState::Completed { completion_time, .. } => completion_time >= &mut cutoff,
     });
 }
 
@@ -92,5 +115,34 @@ fn housekeeping(transactions: &mut HashMap<(u32, String), TransactionState>, max
 /// Used for tracking transaction lifecycle and retransmission detection.
 enum TransactionState {
     InProgress,
-    Completed(SystemTime),
+    Completed { completion_time: SystemTime, response: Arc<Vec<u8>> },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{TransactionStatus, TransactionTracker};
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    #[test]
+    fn retransmit_in_flight_reports_in_progress() {
+        let tracker = TransactionTracker::new(Duration::from_secs(60));
+        let xid = 7;
+        let client_addr = "127.0.0.1:1234";
+
+        assert!(matches!(tracker.check(xid, client_addr), TransactionStatus::New));
+        assert!(matches!(
+            tracker.check(xid, client_addr),
+            TransactionStatus::InProgress
+        ));
+
+        let response = Arc::new(vec![1, 2, 3]);
+        tracker.record_response(xid, client_addr, Arc::clone(&response));
+        match tracker.check(xid, client_addr) {
+            TransactionStatus::Completed(replay) => {
+                assert_eq!(&*replay, &*response);
+            }
+            other => panic!("expected Completed, got {other:?}"),
+        }
+    }
 }
