@@ -93,8 +93,13 @@ pub async fn handle_rpc(
                 nfs3::PROGRAM => match call.vers {
                     nfs3::VERSION => nfs::v3::handle_nfs(xid, call, input, output, &context).await,
                     _ => {
-                        error!("NFSv4 not implemented");
-                        Err(anyhow!("NFSv4 protocol error"))
+                        warn!(
+                            "Unsupported NFS program version {} (supported {})",
+                            call.vers, nfs3::VERSION
+                        );
+                        xdr::rpc::prog_mismatch_reply_message(xid, nfs3::VERSION)
+                            .serialize(output)?;
+                        Ok(())
                     }
                 },
                 portmap::PROGRAM => {
