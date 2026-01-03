@@ -43,8 +43,7 @@ impl MirrorFS {
         if let Ok(existing_id) = fsmap.find_child(dirid, objectname.as_ref()).await {
             if let Ok(entry) = fsmap.find_entry(existing_id) {
                 if entry.exclusive_verifier == Some(*verifier) {
-                    let meta =
-                        path.symlink_metadata().map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
+                    let meta = path.symlink_metadata().map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
                     return Ok(Some((existing_id, metadata_to_fattr3(existing_id, &meta))));
                 }
             }
@@ -68,14 +67,9 @@ impl MirrorFS {
 
         if let CreateFSObject::Exclusive(verifier) = object {
             if exists_no_traverse(&path) {
-                if let Some(existing) = Self::check_exclusive_existing(
-                    &fsmap,
-                    dirid,
-                    objectname,
-                    verifier,
-                    &path,
-                )
-                .await?
+                if let Some(existing) =
+                    Self::check_exclusive_existing(&fsmap, dirid, objectname, verifier, &path)
+                        .await?
                 {
                     return Ok(existing);
                 }
@@ -103,11 +97,7 @@ impl MirrorFS {
                     Err(err) => {
                         if err.kind() == ErrorKind::AlreadyExists {
                             if let Some(existing) = Self::check_exclusive_existing(
-                                &fsmap,
-                                dirid,
-                                objectname,
-                                verifier,
-                                &path,
+                                &fsmap, dirid, objectname, verifier, &path,
                             )
                             .await?
                             {
@@ -293,11 +283,7 @@ impl vfs::NFSFileSystem for MirrorFS {
             debug!("\t --- {:?} {:?}", fileid, name);
             let mut attr = fileent.fsmeta;
             attr.fileid = fileid;
-            all_entries.push(vfs::DirEntry {
-                fileid,
-                name: name.as_bytes().into(),
-                attr,
-            });
+            all_entries.push(vfs::DirEntry { fileid, name: name.as_bytes().into(), attr });
         }
 
         let start_index = if start_after == 0 {
@@ -482,8 +468,11 @@ impl vfs::NFSFileSystem for MirrorFS {
         to_sympath.push(newsym);
         if fsmap.path_to_id.contains_key(&from_sympath) {
             if let Some(target_id) = fsmap.path_to_id.get(&to_sympath).copied() {
-                let target_is_dir =
-                    fsmap.id_to_path.get(&target_id).map(|entry| entry.is_directory()).unwrap_or(false);
+                let target_is_dir = fsmap
+                    .id_to_path
+                    .get(&target_id)
+                    .map(|entry| entry.is_directory())
+                    .unwrap_or(false);
                 if target_is_dir {
                     fsmap.remove_path_tree(to_sympath.clone(), target_id);
                 } else {
@@ -592,8 +581,7 @@ impl vfs::NFSFileSystem for MirrorFS {
             children.insert(sym, new_fileid);
         }
 
-        let source_meta =
-            source_path.symlink_metadata().map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
+        let source_meta = source_path.symlink_metadata().map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
         let source_attr = metadata_to_fattr3(file_id, &source_meta);
         if let Ok(entry) = fsmap.find_entry_mut(file_id) {
             entry.fsmeta = source_attr;

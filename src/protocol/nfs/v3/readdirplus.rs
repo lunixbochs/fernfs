@@ -163,11 +163,7 @@ pub async fn nfsproc3_readdirplus(
     let estimated_max_results = std::cmp::max(1, args.dircount / 16) as usize;
     let max_dircount_bytes = args.dircount as usize;
     let mut ctr = 0;
-    match context
-        .vfs
-        .readdir_index(dirid, start_index, estimated_max_results)
-        .await
-    {
+    match context.vfs.readdir_index(dirid, start_index, estimated_max_results).await {
         Ok(result) => {
             // we count dir_count seperately as it is just a subset of fields
             let mut accumulated_dircount: usize = 0;

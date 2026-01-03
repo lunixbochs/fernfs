@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use intaglio::Symbol;
 use fernfs::xdr::nfs3::{createverf3, fattr3, fileid3, ftype3};
+use intaglio::Symbol;
 
 /// A file system entry representing a file or directory
 #[derive(Debug, Clone)]
@@ -25,7 +25,14 @@ impl FSEntry {
     pub fn new(name: Vec<Symbol>, fsmeta: fattr3) -> Self {
         let mut aliases = BTreeSet::new();
         aliases.insert(name.clone());
-        Self { name, aliases, fsmeta, children_meta: fsmeta, children: None, exclusive_verifier: None }
+        Self {
+            name,
+            aliases,
+            fsmeta,
+            children_meta: fsmeta,
+            children: None,
+            exclusive_verifier: None,
+        }
     }
 
     /// Checks if the entry is a directory

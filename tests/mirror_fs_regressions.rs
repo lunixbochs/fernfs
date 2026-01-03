@@ -98,10 +98,7 @@ async fn rename_directory_updates_descendant_aliases() -> Result<(), nfs3::nfsst
     let attr = fs.getattr(file_id).await?;
     assert_eq!(attr.fileid, file_id);
 
-    assert_eq!(
-        fs.lookup(root, &old_name).await.unwrap_err(),
-        nfs3::nfsstat3::NFS3ERR_NOENT
-    );
+    assert_eq!(fs.lookup(root, &old_name).await.unwrap_err(), nfs3::nfsstat3::NFS3ERR_NOENT);
 
     Ok(())
 }

@@ -40,10 +40,7 @@ impl vfs::NFSFileSystem for WriteCaptureFS {
         Err(nfs3::nfsstat3::NFS3ERR_NOTSUPP)
     }
 
-    async fn getattr(
-        &self,
-        id: nfs3::fileid3,
-    ) -> Result<nfs3::fattr3, nfs3::nfsstat3> {
+    async fn getattr(&self, id: nfs3::fileid3) -> Result<nfs3::fattr3, nfs3::nfsstat3> {
         if id != FILE_ID {
             return Err(nfs3::nfsstat3::NFS3ERR_NOENT);
         }
@@ -145,10 +142,7 @@ impl vfs::NFSFileSystem for WriteCaptureFS {
         Err(nfs3::nfsstat3::NFS3ERR_NOTSUPP)
     }
 
-    async fn readlink(
-        &self,
-        _id: nfs3::fileid3,
-    ) -> Result<nfs3::nfspath3, nfs3::nfsstat3> {
+    async fn readlink(&self, _id: nfs3::fileid3) -> Result<nfs3::nfspath3, nfs3::nfsstat3> {
         Err(nfs3::nfsstat3::NFS3ERR_NOTSUPP)
     }
 
@@ -219,17 +213,14 @@ async fn write_passes_stable_and_returns_committed() {
     };
 
     let mut output = Cursor::new(Vec::new());
-    handle_nfs(11, call, &mut input, &mut output, &context)
-        .await
-        .expect("handle_nfs");
+    handle_nfs(11, call, &mut input, &mut output, &context).await.expect("handle_nfs");
 
     assert_eq!(*fs.captured.lock().unwrap(), Some(nfs3::file::stable_how::FILE_SYNC));
 
     output.set_position(0);
     let _rpc = xdr::deserialize::<xdr::rpc::rpc_msg>(&mut output).expect("deserialize rpc");
     let status_raw = xdr::deserialize::<u32>(&mut output).expect("deserialize status");
-    let status =
-        nfs3::nfsstat3::from_u32(status_raw).expect("invalid nfsstat3 value");
+    let status = nfs3::nfsstat3::from_u32(status_raw).expect("invalid nfsstat3 value");
     assert_eq!(status, nfs3::nfsstat3::NFS3_OK);
     let res = xdr::deserialize::<nfs3::file::WRITE3resok>(&mut output).expect("deserialize resok");
     assert_eq!(res.committed, nfs3::file::stable_how::DATA_SYNC);

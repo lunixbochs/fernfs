@@ -91,7 +91,7 @@ pub async fn nfsproc3_setattr(
             xdr::rpc::make_success_reply(xid).serialize(output)?;
             nfs3::nfsstat3::NFS3ERR_NOT_SYNC.serialize(output)?;
             nfs3::wcc_data::default().serialize(output)?;
-            return Ok(())
+            return Ok(());
         }
     }
 

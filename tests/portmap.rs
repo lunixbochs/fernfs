@@ -25,7 +25,6 @@ const DEFAULT_PORT: u16 = 0;
 const DEFAULT_EXPORT_NAME: &str = "default_name";
 const DEFAULT_ADDRESS: &str = "0.0.0.0:111";
 
-
 fn multiple_mappings(amount: u32, prot: u32) -> Vec<mapping> {
     let mut result = Vec::<mapping>::with_capacity(amount as usize);
     for i in 1..=amount / 2 {
@@ -69,13 +68,7 @@ fn send_get_port(
 
     mapping_args.serialize(input)?;
     input.set_position(0);
-    fernfs::protocol::nfs::portmap::handle_portmap(
-        u32::default(),
-        &body,
-        input,
-        output,
-        context,
-    )
+    fernfs::protocol::nfs::portmap::handle_portmap(u32::default(), &body, input, output, context)
 }
 
 fn send_set_port(
@@ -95,13 +88,7 @@ fn send_set_port(
     mapping_args.serialize(input)?;
 
     input.set_position(0);
-    fernfs::protocol::nfs::portmap::handle_portmap(
-        u32::default(),
-        &body,
-        input,
-        output,
-        context,
-    )
+    fernfs::protocol::nfs::portmap::handle_portmap(u32::default(), &body, input, output, context)
 }
 
 fn send_dump(
@@ -117,13 +104,7 @@ fn send_dump(
         cred: Default::default(),
         verf: Default::default(),
     };
-    fernfs::protocol::nfs::portmap::handle_portmap(
-        u32::default(),
-        &body,
-        input,
-        output,
-        context,
-    )
+    fernfs::protocol::nfs::portmap::handle_portmap(u32::default(), &body, input, output, context)
 }
 fn send_unset_port(
     context: &mut Context,
@@ -142,13 +123,7 @@ fn send_unset_port(
 
     mapping_args.serialize(input)?;
     input.set_position(0);
-    fernfs::protocol::nfs::portmap::handle_portmap(
-        u32::default(),
-        &body,
-        input,
-        output,
-        context,
-    )
+    fernfs::protocol::nfs::portmap::handle_portmap(u32::default(), &body, input, output, context)
 }
 /// Assisting function for RPC portmap operation (`GETPORT`, `SET`, or `UNSET`) to ease operations with Cursors and asserts
 ///

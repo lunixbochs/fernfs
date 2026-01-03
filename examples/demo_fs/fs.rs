@@ -109,11 +109,7 @@ impl vfs::NFSFileSystem for DemoFS {
             }
         }
 
-        Ok((
-            self.getattr(id).await?,
-            nfs3::file::stable_how::FILE_SYNC,
-            data.len() as nfs3::count3,
-        ))
+        Ok((self.getattr(id).await?, nfs3::file::stable_how::FILE_SYNC, data.len() as nfs3::count3))
     }
 
     /// Creates a new file in the specified directory.
@@ -271,7 +267,7 @@ impl vfs::NFSFileSystem for DemoFS {
     }
 
     /// Reads directory entries, starting after the specified cookie index.
-        /// Returns a list of directory entries and an indicator if there are more entries.
+    /// Returns a list of directory entries and an indicator if there are more entries.
     async fn readdir(
         &self,
         dirid: nfs3::fileid3,
@@ -287,8 +283,8 @@ impl vfs::NFSFileSystem for DemoFS {
             let start_index = if start_after == 0 {
                 0
             } else {
-                let idx = usize::try_from(start_after)
-                    .map_err(|_| nfs3::nfsstat3::NFS3ERR_BAD_COOKIE)?;
+                let idx =
+                    usize::try_from(start_after).map_err(|_| nfs3::nfsstat3::NFS3ERR_BAD_COOKIE)?;
                 if idx > dir.len() {
                     return Err(nfs3::nfsstat3::NFS3ERR_BAD_COOKIE);
                 }

@@ -131,10 +131,7 @@ mod tests {
         let client_addr = "127.0.0.1:1234";
 
         assert!(matches!(tracker.check(xid, client_addr), TransactionStatus::New));
-        assert!(matches!(
-            tracker.check(xid, client_addr),
-            TransactionStatus::InProgress
-        ));
+        assert!(matches!(tracker.check(xid, client_addr), TransactionStatus::InProgress));
 
         let response = Arc::new(vec![1, 2, 3]);
         tracker.record_response(xid, client_addr, Arc::clone(&response));

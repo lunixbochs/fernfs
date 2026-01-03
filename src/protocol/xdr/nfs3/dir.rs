@@ -23,8 +23,8 @@ use std::io::{Error, ErrorKind, Read, Write};
 use num_derive::{FromPrimitive, ToPrimitive};
 
 use super::{
-    cookie3, cookieverf3, count3, diropargs3, fileid3, filename3, ftype3, nfs_fh3, post_op_attr,
-    post_op_fh3, sattr3, specdata3, symlinkdata3, deserialize, Deserialize, DeserializeEnum,
+    cookie3, cookieverf3, count3, deserialize, diropargs3, fileid3, filename3, ftype3, nfs_fh3,
+    post_op_attr, post_op_fh3, sattr3, specdata3, symlinkdata3, Deserialize, DeserializeEnum,
     DeserializeStruct, Serialize, SerializeEnum, SerializeStruct,
 };
 

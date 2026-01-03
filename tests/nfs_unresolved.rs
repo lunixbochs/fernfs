@@ -25,9 +25,8 @@ struct TestFS {
     create_result: Mutex<Option<Result<(nfs3::fileid3, nfs3::fattr3), nfs3::nfsstat3>>>,
     mknod_result: Mutex<Option<Result<(nfs3::fileid3, nfs3::fattr3), nfs3::nfsstat3>>>,
     mknod_attrs: Mutex<Option<nfs3::sattr3>>,
-    write_result: Mutex<
-        Option<Result<(nfs3::fattr3, nfs3::file::stable_how, nfs3::count3), nfs3::nfsstat3>>,
-    >,
+    write_result:
+        Mutex<Option<Result<(nfs3::fattr3, nfs3::file::stable_how, nfs3::count3), nfs3::nfsstat3>>>,
     readdir_result: Mutex<Option<Result<ReadDirResult, nfs3::nfsstat3>>>,
     fsinfo_result: Mutex<Option<Result<nfs3::fs::fsinfo3, nfs3::nfsstat3>>>,
     setattr_calls: Mutex<Vec<nfs3::sattr3>>,
@@ -93,12 +92,7 @@ impl vfs::NFSFileSystem for TestFS {
     }
 
     async fn getattr(&self, id: nfs3::fileid3) -> Result<nfs3::fattr3, nfs3::nfsstat3> {
-        self.attrs
-            .lock()
-            .unwrap()
-            .get(&id)
-            .copied()
-            .ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)
+        self.attrs.lock().unwrap().get(&id).copied().ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)
     }
 
     async fn setattr(
@@ -308,19 +302,13 @@ fn file_attr(id: nfs3::fileid3, mode: u32, size: u64) -> nfs3::fattr3 {
 
 #[tokio::test]
 async fn rmdir_rejects_non_directory_target() {
-    let fs = Arc::new(TestFS {
-        remove_result: Mutex::new(Some(Ok(()))),
-        ..TestFS::new()
-    });
+    let fs = Arc::new(TestFS { remove_result: Mutex::new(Some(Ok(()))), ..TestFS::new() });
     fs.insert_attr(ROOT_ID, dir_attr(ROOT_ID));
     fs.insert_attr(2, file_attr(2, 0, 0));
     fs.insert_lookup(ROOT_ID, b"file", 2);
     let context = make_context(fs.clone());
 
-    let args = nfs3::diropargs3 {
-        dir: fs.id_to_fh(ROOT_ID),
-        name: b"file".as_ref().into(),
-    };
+    let args = nfs3::diropargs3 { dir: fs.id_to_fh(ROOT_ID), name: b"file".as_ref().into() };
     let mut input = Cursor::new(Vec::new());
     args.serialize(&mut input).expect("serialize rmdir args");
     input.set_position(0);
@@ -335,9 +323,7 @@ async fn rmdir_rejects_non_directory_target() {
     };
 
     let mut output = Cursor::new(Vec::new());
-    handle_nfs(1, call, &mut input, &mut output, &context)
-        .await
-        .expect("handle_nfs");
+    handle_nfs(1, call, &mut input, &mut output, &context).await.expect("handle_nfs");
 
     output.set_position(0);
     let status = read_status(&mut output);
@@ -364,15 +350,13 @@ async fn readlink_error_includes_post_op_attr() {
     };
 
     let mut output = Cursor::new(Vec::new());
-    handle_nfs(2, call, &mut input, &mut output, &context)
-        .await
-        .expect("handle_nfs");
+    handle_nfs(2, call, &mut input, &mut output, &context).await.expect("handle_nfs");
 
     output.set_position(0);
     let status = read_status(&mut output);
     assert_eq!(status, nfs3::nfsstat3::NFS3ERR_BADHANDLE);
-    let _attr = xdr::deserialize::<nfs3::post_op_attr>(&mut output)
-        .expect("deserialize post_op_attr");
+    let _attr =
+        xdr::deserialize::<nfs3::post_op_attr>(&mut output).expect("deserialize post_op_attr");
 }
 
 #[tokio::test]
@@ -399,15 +383,12 @@ async fn setattr_error_includes_wcc_data() {
     };
 
     let mut output = Cursor::new(Vec::new());
-    handle_nfs(3, call, &mut input, &mut output, &context)
-        .await
-        .expect("handle_nfs");
+    handle_nfs(3, call, &mut input, &mut output, &context).await.expect("handle_nfs");
 
     output.set_position(0);
     let status = read_status(&mut output);
     assert_eq!(status, nfs3::nfsstat3::NFS3ERR_BADHANDLE);
-    let _wcc = xdr::deserialize::<nfs3::wcc_data>(&mut output)
-        .expect("deserialize wcc_data");
+    let _wcc = xdr::deserialize::<nfs3::wcc_data>(&mut output).expect("deserialize wcc_data");
 }
 
 #[tokio::test]
@@ -415,14 +396,10 @@ async fn rename_error_includes_two_wcc_data_blocks() {
     let fs = Arc::new(TestFS::new());
     let context = make_context(fs);
 
-    let from = nfs3::diropargs3 {
-        dir: nfs3::nfs_fh3 { data: Vec::new() },
-        name: b"src".as_ref().into(),
-    };
-    let to = nfs3::diropargs3 {
-        dir: nfs3::nfs_fh3 { data: Vec::new() },
-        name: b"dst".as_ref().into(),
-    };
+    let from =
+        nfs3::diropargs3 { dir: nfs3::nfs_fh3 { data: Vec::new() }, name: b"src".as_ref().into() };
+    let to =
+        nfs3::diropargs3 { dir: nfs3::nfs_fh3 { data: Vec::new() }, name: b"dst".as_ref().into() };
 
     let mut input = Cursor::new(Vec::new());
     from.serialize(&mut input).expect("serialize from");
@@ -439,17 +416,14 @@ async fn rename_error_includes_two_wcc_data_blocks() {
     };
 
     let mut output = Cursor::new(Vec::new());
-    handle_nfs(4, call, &mut input, &mut output, &context)
-        .await
-        .expect("handle_nfs");
+    handle_nfs(4, call, &mut input, &mut output, &context).await.expect("handle_nfs");
 
     output.set_position(0);
     let status = read_status(&mut output);
     assert_eq!(status, nfs3::nfsstat3::NFS3ERR_BADHANDLE);
-    let _from_wcc = xdr::deserialize::<nfs3::wcc_data>(&mut output)
-        .expect("deserialize from wcc_data");
-    let _to_wcc = xdr::deserialize::<nfs3::wcc_data>(&mut output)
-        .expect("deserialize to wcc_data");
+    let _from_wcc =
+        xdr::deserialize::<nfs3::wcc_data>(&mut output).expect("deserialize from wcc_data");
+    let _to_wcc = xdr::deserialize::<nfs3::wcc_data>(&mut output).expect("deserialize to wcc_data");
 }
 
 #[tokio::test]
@@ -475,15 +449,13 @@ async fn fsinfo_error_includes_post_op_attr() {
     };
 
     let mut output = Cursor::new(Vec::new());
-    handle_nfs(5, call, &mut input, &mut output, &context)
-        .await
-        .expect("handle_nfs");
+    handle_nfs(5, call, &mut input, &mut output, &context).await.expect("handle_nfs");
 
     output.set_position(0);
     let status = read_status(&mut output);
     assert_eq!(status, nfs3::nfsstat3::NFS3ERR_IO);
-    let _attr = xdr::deserialize::<nfs3::post_op_attr>(&mut output)
-        .expect("deserialize post_op_attr");
+    let _attr =
+        xdr::deserialize::<nfs3::post_op_attr>(&mut output).expect("deserialize post_op_attr");
 }
 
 #[tokio::test]
@@ -517,9 +489,7 @@ async fn readdir_rejects_bad_cookieverf() {
     };
 
     let mut output = Cursor::new(Vec::new());
-    handle_nfs(6, call, &mut input, &mut output, &context)
-        .await
-        .expect("handle_nfs");
+    handle_nfs(6, call, &mut input, &mut output, &context).await.expect("handle_nfs");
 
     output.set_position(0);
     let status = read_status(&mut output);
@@ -558,9 +528,7 @@ async fn readdirplus_rejects_bad_cookieverf() {
     };
 
     let mut output = Cursor::new(Vec::new());
-    handle_nfs(7, call, &mut input, &mut output, &context)
-        .await
-        .expect("handle_nfs");
+    handle_nfs(7, call, &mut input, &mut output, &context).await.expect("handle_nfs");
 
     output.set_position(0);
     let status = read_status(&mut output);
@@ -610,17 +578,14 @@ async fn readdir_uses_sequential_cookies() {
     };
 
     let mut output = Cursor::new(Vec::new());
-    handle_nfs(8, call, &mut input, &mut output, &context)
-        .await
-        .expect("handle_nfs");
+    handle_nfs(8, call, &mut input, &mut output, &context).await.expect("handle_nfs");
 
     output.set_position(0);
     let status = read_status(&mut output);
     assert_eq!(status, nfs3::nfsstat3::NFS3_OK);
-    let _attr = xdr::deserialize::<nfs3::post_op_attr>(&mut output)
-        .expect("deserialize post_op_attr");
-    let _verf = xdr::deserialize::<nfs3::cookieverf3>(&mut output)
-        .expect("deserialize cookieverf");
+    let _attr =
+        xdr::deserialize::<nfs3::post_op_attr>(&mut output).expect("deserialize post_op_attr");
+    let _verf = xdr::deserialize::<nfs3::cookieverf3>(&mut output).expect("deserialize cookieverf");
 
     let mut cookies = Vec::new();
     loop {
@@ -628,8 +593,7 @@ async fn readdir_uses_sequential_cookies() {
         if !has_entry {
             break;
         }
-        let entry = xdr::deserialize::<nfs3::dir::entry3>(&mut output)
-            .expect("deserialize entry3");
+        let entry = xdr::deserialize::<nfs3::dir::entry3>(&mut output).expect("deserialize entry3");
         cookies.push(entry.cookie);
     }
     let _eof = xdr::deserialize::<bool>(&mut output).expect("deserialize eof flag");
@@ -680,17 +644,14 @@ async fn readdirplus_uses_sequential_cookies() {
     };
 
     let mut output = Cursor::new(Vec::new());
-    handle_nfs(9, call, &mut input, &mut output, &context)
-        .await
-        .expect("handle_nfs");
+    handle_nfs(9, call, &mut input, &mut output, &context).await.expect("handle_nfs");
 
     output.set_position(0);
     let status = read_status(&mut output);
     assert_eq!(status, nfs3::nfsstat3::NFS3_OK);
-    let _attr = xdr::deserialize::<nfs3::post_op_attr>(&mut output)
-        .expect("deserialize post_op_attr");
-    let _verf = xdr::deserialize::<nfs3::cookieverf3>(&mut output)
-        .expect("deserialize cookieverf");
+    let _attr =
+        xdr::deserialize::<nfs3::post_op_attr>(&mut output).expect("deserialize post_op_attr");
+    let _verf = xdr::deserialize::<nfs3::cookieverf3>(&mut output).expect("deserialize cookieverf");
 
     let mut cookies = Vec::new();
     loop {
@@ -698,8 +659,8 @@ async fn readdirplus_uses_sequential_cookies() {
         if !has_entry {
             break;
         }
-        let entry = xdr::deserialize::<nfs3::dir::entryplus3>(&mut output)
-            .expect("deserialize entryplus3");
+        let entry =
+            xdr::deserialize::<nfs3::dir::entryplus3>(&mut output).expect("deserialize entryplus3");
         cookies.push(entry.cookie);
     }
     let _eof = xdr::deserialize::<bool>(&mut output).expect("deserialize eof flag");
@@ -708,10 +669,8 @@ async fn readdirplus_uses_sequential_cookies() {
 
 #[tokio::test]
 async fn mkdir_applies_requested_attributes() {
-    let fs = Arc::new(TestFS {
-        mkdir_result: Mutex::new(Some(Ok((2, dir_attr(2))))),
-        ..TestFS::new()
-    });
+    let fs =
+        Arc::new(TestFS { mkdir_result: Mutex::new(Some(Ok((2, dir_attr(2))))), ..TestFS::new() });
     fs.insert_attr(ROOT_ID, dir_attr(ROOT_ID));
     fs.insert_attr(2, dir_attr(2));
     let context = make_context(fs.clone());
@@ -737,16 +696,14 @@ async fn mkdir_applies_requested_attributes() {
     };
 
     let mut output = Cursor::new(Vec::new());
-    handle_nfs(7, call, &mut input, &mut output, &context)
-        .await
-        .expect("handle_nfs");
+    handle_nfs(7, call, &mut input, &mut output, &context).await.expect("handle_nfs");
 
     output.set_position(0);
     let status = read_status(&mut output);
     assert_eq!(status, nfs3::nfsstat3::NFS3_OK);
     let _fh = xdr::deserialize::<nfs3::post_op_fh3>(&mut output).expect("deserialize fh");
-    let attr = xdr::deserialize::<nfs3::post_op_attr>(&mut output)
-        .expect("deserialize post_op_attr");
+    let attr =
+        xdr::deserialize::<nfs3::post_op_attr>(&mut output).expect("deserialize post_op_attr");
     match attr {
         nfs3::post_op_attr::Some(attr) => {
             assert_eq!(attr.mode, 0o755);
@@ -787,16 +744,14 @@ async fn create_unchecked_updates_existing_attributes() {
     };
 
     let mut output = Cursor::new(Vec::new());
-    handle_nfs(8, call, &mut input, &mut output, &context)
-        .await
-        .expect("handle_nfs");
+    handle_nfs(8, call, &mut input, &mut output, &context).await.expect("handle_nfs");
 
     output.set_position(0);
     let status = read_status(&mut output);
     assert_eq!(status, nfs3::nfsstat3::NFS3_OK);
     let _fh = xdr::deserialize::<nfs3::post_op_fh3>(&mut output).expect("deserialize fh");
-    let attr = xdr::deserialize::<nfs3::post_op_attr>(&mut output)
-        .expect("deserialize post_op_attr");
+    let attr =
+        xdr::deserialize::<nfs3::post_op_attr>(&mut output).expect("deserialize post_op_attr");
     match attr {
         nfs3::post_op_attr::Some(attr) => {
             assert_eq!(attr.mode, 0o644);
@@ -842,9 +797,7 @@ async fn mknod_passes_pipe_attributes() {
     };
 
     let mut output = Cursor::new(Vec::new());
-    handle_nfs(9, call, &mut input, &mut output, &context)
-        .await
-        .expect("handle_nfs");
+    handle_nfs(9, call, &mut input, &mut output, &context).await.expect("handle_nfs");
 
     let captured = fs.mknod_attrs.lock().unwrap().expect("captured attrs");
     assert_eq!(captured.mode, nfs3::set_mode3::Some(0o600));
@@ -886,15 +839,12 @@ async fn write_reports_actual_count() {
     };
 
     let mut output = Cursor::new(Vec::new());
-    handle_nfs(10, call, &mut input, &mut output, &context)
-        .await
-        .expect("handle_nfs");
+    handle_nfs(10, call, &mut input, &mut output, &context).await.expect("handle_nfs");
 
     output.set_position(0);
     let status = read_status(&mut output);
     assert_eq!(status, nfs3::nfsstat3::NFS3_OK);
-    let res = xdr::deserialize::<nfs3::file::WRITE3resok>(&mut output)
-        .expect("deserialize resok");
+    let res = xdr::deserialize::<nfs3::file::WRITE3resok>(&mut output).expect("deserialize resok");
     assert_eq!(res.count, 2);
 }
 
@@ -921,15 +871,13 @@ async fn access_returns_only_requested_bits() {
     };
 
     let mut output = Cursor::new(Vec::new());
-    handle_nfs(11, call, &mut input, &mut output, &context)
-        .await
-        .expect("handle_nfs");
+    handle_nfs(11, call, &mut input, &mut output, &context).await.expect("handle_nfs");
 
     output.set_position(0);
     let status = read_status(&mut output);
     assert_eq!(status, nfs3::nfsstat3::NFS3_OK);
-    let _attr = xdr::deserialize::<nfs3::post_op_attr>(&mut output)
-        .expect("deserialize post_op_attr");
+    let _attr =
+        xdr::deserialize::<nfs3::post_op_attr>(&mut output).expect("deserialize post_op_attr");
     let granted = xdr::deserialize::<u32>(&mut output).expect("deserialize access");
     assert_eq!(granted, nfs3::ACCESS3_READ);
 }

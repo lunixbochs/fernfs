@@ -32,16 +32,10 @@ async fn rejects_oversized_rpc_fragment() {
 
     let oversized = fernfs::protocol::rpc::MAX_RPC_RECORD_LENGTH + 1;
     let fragment_header = (1_u32 << 31) | (oversized as u32);
-    socksend
-        .write_all(&fragment_header.to_be_bytes())
-        .await
-        .expect("write fragment header");
+    socksend.write_all(&fragment_header.to_be_bytes()).await.expect("write fragment header");
 
     let err = handler.read().await.expect_err("expected oversize error");
-    assert!(
-        err.to_string().contains("exceeds max"),
-        "unexpected error: {err:?}"
-    );
+    assert!(err.to_string().contains("exceeds max"), "unexpected error: {err:?}");
 }
 
 #[tokio::test]
@@ -61,10 +55,7 @@ async fn accepts_rpc_fragment_under_limit() {
 
     let (mut handler, mut socksend, mut msgrecv) = SocketMessageHandler::new(&test_context());
     let fragment_header = (1_u32 << 31) | (msg_buf.len() as u32);
-    socksend
-        .write_all(&fragment_header.to_be_bytes())
-        .await
-        .expect("write fragment header");
+    socksend.write_all(&fragment_header.to_be_bytes()).await.expect("write fragment header");
     socksend.write_all(&msg_buf).await.expect("write fragment body");
 
     handler.read().await.expect("handler read");
@@ -97,10 +88,7 @@ async fn returns_prog_mismatch_for_unsupported_nfs_version() {
     let (mut handler, mut socksend, mut msgrecv) = SocketMessageHandler::new(&test_context());
 
     let fragment_header = (1_u32 << 31) | (msg_buf.len() as u32);
-    socksend
-        .write_all(&fragment_header.to_be_bytes())
-        .await
-        .expect("write fragment header");
+    socksend.write_all(&fragment_header.to_be_bytes()).await.expect("write fragment header");
     socksend.write_all(&msg_buf).await.expect("write fragment body");
 
     handler.read().await.expect("handler read");
@@ -146,10 +134,7 @@ async fn retransmission_replays_response() {
     let (mut handler, mut socksend, mut msgrecv) = SocketMessageHandler::new(&test_context());
     let fragment_header = (1_u32 << 31) | (msg_buf.len() as u32);
 
-    socksend
-        .write_all(&fragment_header.to_be_bytes())
-        .await
-        .expect("write fragment header");
+    socksend.write_all(&fragment_header.to_be_bytes()).await.expect("write fragment header");
     socksend.write_all(&msg_buf).await.expect("write fragment body");
     handler.read().await.expect("handler read");
 
@@ -162,10 +147,7 @@ async fn retransmission_replays_response() {
         .expect("deserialize reply");
     assert_eq!(reply.xid, xid);
 
-    socksend
-        .write_all(&fragment_header.to_be_bytes())
-        .await
-        .expect("write fragment header");
+    socksend.write_all(&fragment_header.to_be_bytes()).await.expect("write fragment header");
     socksend.write_all(&msg_buf).await.expect("write fragment body");
     handler.read().await.expect("handler read");
 

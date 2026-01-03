@@ -59,9 +59,7 @@ async fn main() {
     let path = path.expect("must supply directory to mirror");
 
     let fs = fs::MirrorFS::new(path);
-    let mut listener = NFSTcpListener::bind(&format!("127.0.0.1:{HOSTPORT}"), fs)
-        .await
-        .unwrap();
+    let mut listener = NFSTcpListener::bind(&format!("127.0.0.1:{HOSTPORT}"), fs).await.unwrap();
     listener.require_privileged_source_port(require_privileged_source_port);
     listener.handle_forever().await.unwrap();
 }

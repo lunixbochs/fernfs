@@ -109,7 +109,8 @@ async fn handle_rpc(
                     _ => {
                         warn!(
                             "Unsupported NFS program version {} (supported {})",
-                            call.vers, nfs3::VERSION
+                            call.vers,
+                            nfs3::VERSION
                         );
                         xdr::rpc::prog_mismatch_reply_message(xid, nfs3::VERSION)
                             .serialize(output)?;

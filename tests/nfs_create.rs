@@ -48,10 +48,7 @@ impl vfs::NFSFileSystem for ExclusiveCaptureFS {
         Err(nfs3::nfsstat3::NFS3ERR_NOTSUPP)
     }
 
-    async fn getattr(
-        &self,
-        id: nfs3::fileid3,
-    ) -> Result<nfs3::fattr3, nfs3::nfsstat3> {
+    async fn getattr(&self, id: nfs3::fileid3) -> Result<nfs3::fattr3, nfs3::nfsstat3> {
         if id != ROOT_ID {
             return Err(nfs3::nfsstat3::NFS3ERR_NOENT);
         }
@@ -149,10 +146,7 @@ impl vfs::NFSFileSystem for ExclusiveCaptureFS {
         Err(nfs3::nfsstat3::NFS3ERR_NOTSUPP)
     }
 
-    async fn readlink(
-        &self,
-        _id: nfs3::fileid3,
-    ) -> Result<nfs3::nfspath3, nfs3::nfsstat3> {
+    async fn readlink(&self, _id: nfs3::fileid3) -> Result<nfs3::nfspath3, nfs3::nfsstat3> {
         Err(nfs3::nfsstat3::NFS3ERR_NOTSUPP)
     }
 
@@ -220,17 +214,14 @@ async fn create_exclusive_passes_verifier_to_vfs() {
     };
 
     let mut output = Cursor::new(Vec::new());
-    handle_nfs(9, call, &mut input, &mut output, &context)
-        .await
-        .expect("handle_nfs");
+    handle_nfs(9, call, &mut input, &mut output, &context).await.expect("handle_nfs");
 
     assert_eq!(*fs.captured.lock().unwrap(), Some(verifier));
 
     output.set_position(0);
     let _rpc = xdr::deserialize::<xdr::rpc::rpc_msg>(&mut output).expect("deserialize rpc");
     let status_raw = xdr::deserialize::<u32>(&mut output).expect("deserialize status");
-    let status =
-        nfs3::nfsstat3::from_u32(status_raw).expect("invalid nfsstat3 value");
+    let status = nfs3::nfsstat3::from_u32(status_raw).expect("invalid nfsstat3 value");
     assert_eq!(status, nfs3::nfsstat3::NFS3_OK);
     let fh = xdr::deserialize::<nfs3::post_op_fh3>(&mut output).expect("deserialize fh");
     let fh = fh.expect("expected file handle");
