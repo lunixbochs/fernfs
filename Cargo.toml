@@ -5,6 +5,10 @@ edition = "2021"
 description = "A Rust NFS Server implementation"
 publish = true
 rust-version = "1.83.0"
+license = "BSD-3-Clause"
+documentation = "https://docs.rs/fernfs"
+homepage = "https://github.com/lunixbochs/fernfs"
+repository = "https://github.com/lunixbochs/fernfs"
 
 [lib]
 doctest = false
