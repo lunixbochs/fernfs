@@ -15,6 +15,13 @@ user:
   name: user
   home: /home/{{.User}}
 
+portForwards:
+  - guestIP: 0.0.0.0
+    guestIPMustBeZero: false
+    proto: any
+    guestPortRange: [1, 65535]
+    ignore: true
+
 mounts:
   - location: "{{.Param.AppDir}}"
     mountPoint: /mnt/app
