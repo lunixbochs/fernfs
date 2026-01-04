@@ -25,7 +25,13 @@ use std::time::{Duration, SystemTime};
 /// and maintains transaction state for a configurable retention period.
 pub struct TransactionTracker {
     retention_period: Duration,
-    transactions: Mutex<HashMap<(u32, String), TransactionState>>,
+    housekeeping_interval: Duration,
+    transactions: Mutex<TransactionStore>,
+}
+
+struct TransactionStore {
+    transactions: HashMap<(u32, String), TransactionState>,
+    last_housekeeping: SystemTime,
 }
 
 /// Status of a tracked transaction.
@@ -46,7 +52,19 @@ impl TransactionTracker {
     /// for the given duration. This helps balance memory usage with the ability
     /// to detect retransmissions over time.
     pub fn new(retention_period: Duration) -> Self {
-        Self { retention_period, transactions: Mutex::new(HashMap::new()) }
+        let housekeeping_interval = if retention_period < Duration::from_secs(1) {
+            retention_period
+        } else {
+            std::cmp::max(Duration::from_secs(1), retention_period / 4)
+        };
+        Self {
+            retention_period,
+            housekeeping_interval,
+            transactions: Mutex::new(TransactionStore {
+                transactions: HashMap::new(),
+                last_housekeeping: SystemTime::now(),
+            }),
+        }
     }
 
     /// Checks transaction status and records new calls as in-progress.
@@ -55,10 +73,15 @@ impl TransactionTracker {
     /// has been seen before. If it's a new transaction, marks it as in-progress.
     pub fn check(&self, xid: u32, client_addr: &str) -> TransactionStatus {
         let key = (xid, client_addr.to_string());
-        let mut transactions =
-            self.transactions.lock().expect("unable to unlock transactions mutex");
-        housekeeping(&mut transactions, self.retention_period);
-        match transactions.entry(key) {
+        let now = SystemTime::now();
+        let mut store = self.transactions.lock().expect("unable to unlock transactions mutex");
+        if !store.transactions.is_empty()
+            && should_housekeep(store.last_housekeeping, now, self.housekeeping_interval)
+        {
+            housekeeping(&mut store.transactions, self.retention_period, now);
+            store.last_housekeeping = now;
+        }
+        match store.transactions.entry(key) {
             std::collections::hash_map::Entry::Vacant(e) => {
                 e.insert(TransactionState::InProgress);
                 TransactionStatus::New
@@ -66,7 +89,7 @@ impl TransactionTracker {
             std::collections::hash_map::Entry::Occupied(mut entry) => match entry.get_mut() {
                 TransactionState::InProgress => TransactionStatus::InProgress,
                 TransactionState::Completed { completion_time, response } => {
-                    *completion_time = SystemTime::now();
+                    *completion_time = now;
                     TransactionStatus::Completed(Arc::clone(response))
                 }
             },
@@ -81,18 +104,20 @@ impl TransactionTracker {
     pub fn record_response(&self, xid: u32, client_addr: &str, response: Arc<Vec<u8>>) {
         let key = (xid, client_addr.to_string());
         let completion_time = SystemTime::now();
-        let mut transactions =
-            self.transactions.lock().expect("unable to unlock transactions mutex");
-        transactions.insert(key, TransactionState::Completed { completion_time, response });
+        let mut store = self.transactions.lock().expect("unable to unlock transactions mutex");
+        store.transactions.insert(key, TransactionState::Completed { completion_time, response });
     }
 
     /// Clears a transaction entry so a later retry can be processed.
     pub fn clear(&self, xid: u32, client_addr: &str) {
         let key = (xid, client_addr.to_string());
-        let mut transactions =
-            self.transactions.lock().expect("unable to unlock transactions mutex");
-        transactions.remove(&key);
+        let mut store = self.transactions.lock().expect("unable to unlock transactions mutex");
+        store.transactions.remove(&key);
     }
+}
+
+fn should_housekeep(last: SystemTime, now: SystemTime, interval: Duration) -> bool {
+    now.duration_since(last).map(|elapsed| elapsed >= interval).unwrap_or(true)
 }
 
 /// Removes expired transactions from the tracking map
@@ -100,8 +125,12 @@ impl TransactionTracker {
 /// Cleans up completed transactions that have exceeded the maximum retention age.
 /// Keeps in-progress transactions regardless of age to prevent processing duplicates.
 /// Called during transaction checks to maintain memory efficiency.
-fn housekeeping(transactions: &mut HashMap<(u32, String), TransactionState>, max_age: Duration) {
-    let mut cutoff = SystemTime::now() - max_age;
+fn housekeeping(
+    transactions: &mut HashMap<(u32, String), TransactionState>,
+    max_age: Duration,
+    now: SystemTime,
+) {
+    let mut cutoff = now - max_age;
     transactions.retain(|_, v| match v {
         TransactionState::InProgress => true,
         TransactionState::Completed { completion_time, .. } => completion_time >= &mut cutoff,
