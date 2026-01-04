@@ -18,11 +18,6 @@ pub mod fs_map;
 /// an NFS server on the specified port.
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::DEBUG)
-        .with_writer(std::io::stderr)
-        .init();
-
     fn print_help() {
         eprintln!(
             "Usage: fernfs [--host <HOST>] [--port <PORT>] [--allow-unprivileged-source-port] <DIRECTORY>\n\
@@ -30,6 +25,7 @@ async fn main() {
              Options:\n\
                -h, --host <HOST>                Bind host (default: {DEFAULT_HOST})\n\
                -p, --port <PORT>                Bind port (default: {DEFAULT_PORT})\n\
+               -v, --verbose                    Enable debug logging\n\
                --allow-unprivileged-source-port Allow client source ports >= 1024 (default: require privileged)\n\
                --help                           Show this help and exit"
         );
@@ -64,9 +60,13 @@ async fn main() {
     let mut host = DEFAULT_HOST.to_string();
     let mut port = DEFAULT_PORT;
     let mut path: Option<PathBuf> = None;
+    let mut verbose = false;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
+            "--verbose" | "-v" => {
+                verbose = true;
+            }
             "--allow-unprivileged-source-port" => {
                 require_privileged_source_port = false;
             }
@@ -114,6 +114,9 @@ async fn main() {
         print_help();
         std::process::exit(2);
     };
+
+    let max_level = if verbose { tracing::Level::DEBUG } else { tracing::Level::INFO };
+    tracing_subscriber::fmt().with_max_level(max_level).with_writer(std::io::stderr).init();
 
     let fs = fs::MirrorFS::new(path);
     let bind_addr = if host.contains(':') {
