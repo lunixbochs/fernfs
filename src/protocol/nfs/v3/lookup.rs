@@ -56,7 +56,23 @@ pub async fn nfsproc3_lookup(
 
     let dirid = dirid.unwrap();
 
-    let dir_attr = context.vfs.getattr(dirid).await.ok();
+    let dir_attr_maybe = context.vfs.getattr(dirid).await;
+    let dir_attr = dir_attr_maybe.ok();
+    match context.vfs.check_access(dirid, &context.auth, nfs3::ACCESS3_LOOKUP).await {
+        Ok(granted) if granted & nfs3::ACCESS3_LOOKUP != 0 => {}
+        Ok(_) => {
+            xdr::rpc::make_success_reply(xid).serialize(output)?;
+            nfs3::nfsstat3::NFS3ERR_ACCES.serialize(output)?;
+            dir_attr.serialize(output)?;
+            return Ok(());
+        }
+        Err(stat) => {
+            xdr::rpc::make_success_reply(xid).serialize(output)?;
+            stat.serialize(output)?;
+            dir_attr.serialize(output)?;
+            return Ok(());
+        }
+    }
 
     match context.vfs.lookup(dirid, &dirops.name).await {
         Ok(fid) => {

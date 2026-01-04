@@ -101,10 +101,9 @@ pub async fn nfsproc3_rename(
     let to_dirid = to_dirid.unwrap();
 
     // get the object attributes before the write
-    let pre_from_dir_attr = match context.vfs.getattr(from_dirid).await {
+    let from_dir_attr = match context.vfs.getattr(from_dirid).await {
         Ok(v) => {
-            let wccattr = nfs3::wcc_attr { size: v.size, mtime: v.mtime, ctime: v.ctime };
-            nfs3::pre_op_attr::Some(wccattr)
+            v
         }
         Err(stat) => {
             error!("Cannot stat directory");
@@ -115,12 +114,16 @@ pub async fn nfsproc3_rename(
             return Ok(());
         }
     };
+    let pre_from_dir_attr = nfs3::pre_op_attr::Some(nfs3::wcc_attr {
+        size: from_dir_attr.size,
+        mtime: from_dir_attr.mtime,
+        ctime: from_dir_attr.ctime,
+    });
 
     // get the object attributes before the write
-    let pre_to_dir_attr = match context.vfs.getattr(to_dirid).await {
+    let to_dir_attr = match context.vfs.getattr(to_dirid).await {
         Ok(v) => {
-            let wccattr = nfs3::wcc_attr { size: v.size, mtime: v.mtime, ctime: v.ctime };
-            nfs3::pre_op_attr::Some(wccattr)
+            v
         }
         Err(stat) => {
             error!("Cannot stat directory");
@@ -131,6 +134,53 @@ pub async fn nfsproc3_rename(
             return Ok(());
         }
     };
+    let pre_to_dir_attr = nfs3::pre_op_attr::Some(nfs3::wcc_attr {
+        size: to_dir_attr.size,
+        mtime: to_dir_attr.mtime,
+        ctime: to_dir_attr.ctime,
+    });
+
+    let from_access = context
+        .vfs
+        .check_access(from_dirid, &context.auth, nfs3::ACCESS3_MODIFY)
+        .await;
+    let to_access =
+        context.vfs.check_access(to_dirid, &context.auth, nfs3::ACCESS3_MODIFY).await;
+    match (from_access, to_access) {
+        (Ok(from_granted), Ok(to_granted))
+            if from_granted & nfs3::ACCESS3_MODIFY != 0
+                && to_granted & nfs3::ACCESS3_MODIFY != 0 => {}
+        (Ok(_), Ok(_)) => {
+            xdr::rpc::make_success_reply(xid).serialize(output)?;
+            nfs3::nfsstat3::NFS3ERR_ACCES.serialize(output)?;
+            nfs3::wcc_data {
+                before: pre_from_dir_attr,
+                after: nfs3::post_op_attr::Some(from_dir_attr),
+            }
+            .serialize(output)?;
+            nfs3::wcc_data {
+                before: pre_to_dir_attr,
+                after: nfs3::post_op_attr::Some(to_dir_attr),
+            }
+            .serialize(output)?;
+            return Ok(());
+        }
+        (Err(stat), _) | (_, Err(stat)) => {
+            xdr::rpc::make_success_reply(xid).serialize(output)?;
+            stat.serialize(output)?;
+            nfs3::wcc_data {
+                before: pre_from_dir_attr,
+                after: nfs3::post_op_attr::Some(from_dir_attr),
+            }
+            .serialize(output)?;
+            nfs3::wcc_data {
+                before: pre_to_dir_attr,
+                after: nfs3::post_op_attr::Some(to_dir_attr),
+            }
+            .serialize(output)?;
+            return Ok(());
+        }
+    }
 
     // rename!
     let res = context.vfs.rename(from_dirid, &fromdirops.name, to_dirid, &todirops.name).await;

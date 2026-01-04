@@ -181,29 +181,35 @@ impl<T: NFSFileSystem + Send + Sync + 'static> NFSTcpListener<T> {
     ///
     /// A Result containing either the new [`NFSTcpListener`] or an IO error
     pub async fn bind(ipstr: &str, fs: T) -> io::Result<NFSTcpListener<T>> {
-        let (ip, port) = ipstr.split_once(':').ok_or_else(|| {
-            io::Error::new(io::ErrorKind::AddrNotAvailable, "IP Address must be of form ip:port")
-        })?;
-        let port = port.parse::<u16>().map_err(|_| {
-            io::Error::new(io::ErrorKind::AddrNotAvailable, "Port not in range 0..=65535")
-        })?;
         let arcfs: Arc<T> = Arc::new(fs);
+        if let Some(port_str) = ipstr.strip_prefix("auto:") {
+            let port = port_str.parse::<u16>().map_err(|_| {
+                io::Error::new(io::ErrorKind::AddrNotAvailable, "Port not in range 0..=65535")
+            })?;
 
-        if ip != "auto" {
-            return NFSTcpListener::bind_internal(ip, port, arcfs).await;
-        }
+            const NUM_TRIES: u16 = 32;
+            for try_ip in 1..=NUM_TRIES {
+                let ip: IpAddr = generate_host_ip(try_ip).parse().map_err(|_| {
+                    io::Error::new(io::ErrorKind::AddrNotAvailable, "Invalid auto IP address")
+                })?;
+                let addr = SocketAddr::new(ip, port);
+                let result = NFSTcpListener::bind_internal(addr, arcfs.clone()).await;
 
-        const NUM_TRIES: u16 = 32;
-        for try_ip in 1..=NUM_TRIES {
-            let ip = generate_host_ip(try_ip);
-            let result = NFSTcpListener::bind_internal(&ip, port, arcfs.clone()).await;
-
-            if result.is_ok() {
-                return result;
+                if result.is_ok() {
+                    return result;
+                }
             }
+
+            return Err(io::Error::other("Can't bind automatically"));
         }
 
-        Err(io::Error::other("Can't bind automatically"))
+        let addr = ipstr.parse::<SocketAddr>().map_err(|_| {
+            io::Error::new(
+                io::ErrorKind::AddrNotAvailable,
+                "Address must be in IP:PORT or [IPV6]:PORT form",
+            )
+        })?;
+        NFSTcpListener::bind_internal(addr, arcfs).await
     }
 
     /// Internal method to bind the TCP listener to a specific IP and port
@@ -213,15 +219,11 @@ impl<T: NFSFileSystem + Send + Sync + 'static> NFSTcpListener<T> {
     /// * `ip` - IP address to bind to
     /// * `port` - Port number to bind to
     /// * `arcfs` - Arc reference to the NFS file system implementation
-    async fn bind_internal(ip: &str, port: u16, arcfs: Arc<T>) -> io::Result<NFSTcpListener<T>> {
-        let ipstr = format!("{ip}:{port}");
-        let listener = TcpListener::bind(&ipstr).await?;
-        info!("Listening on {:?}", &ipstr);
-
-        let port = match listener.local_addr().unwrap() {
-            SocketAddr::V4(s) => s.port(),
-            SocketAddr::V6(s) => s.port(),
-        };
+    async fn bind_internal(addr: SocketAddr, arcfs: Arc<T>) -> io::Result<NFSTcpListener<T>> {
+        let listener = TcpListener::bind(addr).await?;
+        let local_addr = listener.local_addr()?;
+        info!("Listening on {:?}", local_addr);
+        let port = local_addr.port();
         Ok(NFSTcpListener {
             listener,
             port,

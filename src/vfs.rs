@@ -24,6 +24,8 @@ use async_trait::async_trait;
 
 use crate::protocol::xdr::nfs3;
 
+pub mod permissions;
+
 /// Simplified directory entry containing only file ID and name
 ///
 /// Used for simple directory listing operations where full attributes are not needed
@@ -509,6 +511,17 @@ pub trait NFSFileSystem: Sync {
         count: u32,
     ) -> Result<nfs3::fattr3, nfs3::nfsstat3>;
 
+    /// Checks access permissions for a file system object.
+    async fn check_access(
+        &self,
+        id: nfs3::fileid3,
+        auth: &crate::protocol::xdr::rpc::auth_unix,
+        access: u32,
+    ) -> Result<u32, nfs3::nfsstat3> {
+        let attr = self.getattr(id).await?;
+        Ok(permissions::access_mask(&attr, auth, self.capabilities(), access))
+    }
+
     /// Returns the maximum size in bytes of a READ request for FSINFO.
     fn fsinfo_rtmax(&self) -> u32 {
         1024 * 1024
@@ -619,6 +632,27 @@ pub trait NFSFileSystem: Sync {
             properties: self.fsinfo_properties(),
         };
         Ok(res)
+    }
+
+    /// Retrieves dynamic file system statistics
+    ///
+    /// The default implementation returns zeroed statistics to avoid
+    /// misrepresenting capacity for backends without an accurate view.
+    async fn fsstat(
+        &self,
+        root_fileid: nfs3::fileid3,
+    ) -> Result<nfs3::fs::FSSTAT3resok, nfs3::nfsstat3> {
+        let dir_attr: nfs3::post_op_attr = self.getattr(root_fileid).await.ok();
+        Ok(nfs3::fs::FSSTAT3resok {
+            obj_attributes: dir_attr,
+            tbytes: 0,
+            fbytes: 0,
+            abytes: 0,
+            tfiles: 0,
+            ffiles: 0,
+            afiles: 0,
+            invarsec: 0,
+        })
     }
 
     /// Converts a file ID to an opaque NFS file handle

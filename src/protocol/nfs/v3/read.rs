@@ -54,8 +54,25 @@ pub async fn nfsproc3_read(
     }
     let id = id.unwrap();
 
+    let max_read = context.vfs.fsinfo_rtmax().min(rpc::MAX_BLOCK_SIZE as u32);
+    let count = args.count.min(max_read);
     let obj_attr = context.vfs.getattr(id).await.ok();
-    match context.vfs.read(id, args.offset, args.count).await {
+    match context.vfs.check_access(id, &context.auth, nfs3::ACCESS3_READ).await {
+        Ok(granted) if granted & nfs3::ACCESS3_READ != 0 => {}
+        Ok(_) => {
+            xdr::rpc::make_success_reply(xid).serialize(output)?;
+            nfs3::nfsstat3::NFS3ERR_ACCES.serialize(output)?;
+            obj_attr.serialize(output)?;
+            return Ok(());
+        }
+        Err(stat) => {
+            xdr::rpc::make_success_reply(xid).serialize(output)?;
+            stat.serialize(output)?;
+            obj_attr.serialize(output)?;
+            return Ok(());
+        }
+    }
+    match context.vfs.read(id, args.offset, count).await {
         Ok((bytes, eof)) => {
             let res = nfs3::file::READ3resok {
                 file_attributes: obj_attr,

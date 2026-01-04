@@ -72,12 +72,8 @@ pub async fn nfsproc3_setattr(
 
     let ctime;
 
-    let pre_op_attr = match context.vfs.getattr(id).await {
-        Ok(v) => {
-            let wccattr = nfs3::wcc_attr { size: v.size, mtime: v.mtime, ctime: v.ctime };
-            ctime = v.ctime;
-            nfs3::pre_op_attr::Some(wccattr)
-        }
+    let current_attr = match context.vfs.getattr(id).await {
+        Ok(v) => v,
         Err(stat) => {
             xdr::rpc::make_success_reply(xid).serialize(output)?;
             stat.serialize(output)?;
@@ -85,6 +81,38 @@ pub async fn nfsproc3_setattr(
             return Ok(());
         }
     };
+    let pre_op_attr = nfs3::pre_op_attr::Some(nfs3::wcc_attr {
+        size: current_attr.size,
+        mtime: current_attr.mtime,
+        ctime: current_attr.ctime,
+    });
+    ctime = current_attr.ctime;
+    let requires_modify = args.new_attribute.size.is_some();
+    if requires_modify {
+        match context.vfs.check_access(id, &context.auth, nfs3::ACCESS3_MODIFY).await {
+            Ok(granted) if granted & nfs3::ACCESS3_MODIFY != 0 => {}
+            Ok(_) => {
+                xdr::rpc::make_success_reply(xid).serialize(output)?;
+                nfs3::nfsstat3::NFS3ERR_ACCES.serialize(output)?;
+                nfs3::wcc_data {
+                    before: pre_op_attr,
+                    after: nfs3::post_op_attr::Some(current_attr),
+                }
+                .serialize(output)?;
+                return Ok(());
+            }
+            Err(stat) => {
+                xdr::rpc::make_success_reply(xid).serialize(output)?;
+                stat.serialize(output)?;
+                nfs3::wcc_data {
+                    before: pre_op_attr,
+                    after: nfs3::post_op_attr::Some(current_attr),
+                }
+                .serialize(output)?;
+                return Ok(());
+            }
+        }
+    }
     // handle the guard
     if let nfs3::sattrguard3::Some(c) = args.guard {
         if c.seconds != ctime.seconds || c.nseconds != ctime.nseconds {

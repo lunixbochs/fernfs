@@ -82,12 +82,43 @@ pub async fn nfsproc3_link(
     let dirid = dirid.unwrap();
 
     // Get the directory attributes before the operation
-    let pre_dir_attr = context
-        .vfs
-        .getattr(dirid)
-        .await
-        .map(|v| nfs3::wcc_attr { size: v.size, mtime: v.mtime, ctime: v.ctime })
-        .ok();
+    let dir_attr = match context.vfs.getattr(dirid).await {
+        Ok(v) => v,
+        Err(stat) => {
+            xdr::rpc::make_success_reply(xid).serialize(output)?;
+            stat.serialize(output)?;
+            nfs3::post_op_attr::None.serialize(output)?;
+            nfs3::wcc_data::default().serialize(output)?;
+            return Ok(());
+        }
+    };
+    let pre_dir_attr =
+        nfs3::pre_op_attr::Some(nfs3::wcc_attr { size: dir_attr.size, mtime: dir_attr.mtime, ctime: dir_attr.ctime });
+    match context.vfs.check_access(dirid, &context.auth, nfs3::ACCESS3_MODIFY).await {
+        Ok(granted) if granted & nfs3::ACCESS3_MODIFY != 0 => {}
+        Ok(_) => {
+            xdr::rpc::make_success_reply(xid).serialize(output)?;
+            nfs3::nfsstat3::NFS3ERR_ACCES.serialize(output)?;
+            nfs3::post_op_attr::None.serialize(output)?;
+            nfs3::wcc_data {
+                before: pre_dir_attr,
+                after: nfs3::post_op_attr::Some(dir_attr),
+            }
+            .serialize(output)?;
+            return Ok(());
+        }
+        Err(stat) => {
+            xdr::rpc::make_success_reply(xid).serialize(output)?;
+            stat.serialize(output)?;
+            nfs3::post_op_attr::None.serialize(output)?;
+            nfs3::wcc_data {
+                before: pre_dir_attr,
+                after: nfs3::post_op_attr::Some(dir_attr),
+            }
+            .serialize(output)?;
+            return Ok(());
+        }
+    }
 
     // Call VFS link method
     match context.vfs.link(fileid, dirid, &args.link.name).await {

@@ -74,12 +74,26 @@ pub async fn nfsproc3_write(
     let id = id.unwrap();
 
     // get the object attributes before the write
-    let pre_obj_attr = context
-        .vfs
-        .getattr(id)
-        .await
-        .map(|v| nfs3::wcc_attr { size: v.size, mtime: v.mtime, ctime: v.ctime })
-        .ok();
+    let pre_attr = context.vfs.getattr(id).await.ok();
+    let pre_obj_attr =
+        pre_attr.map(|v| nfs3::wcc_attr { size: v.size, mtime: v.mtime, ctime: v.ctime });
+    match context.vfs.check_access(id, &context.auth, nfs3::ACCESS3_MODIFY).await {
+        Ok(granted) if granted & nfs3::ACCESS3_MODIFY != 0 => {}
+        Ok(_) => {
+            xdr::rpc::make_success_reply(xid).serialize(output)?;
+            nfs3::nfsstat3::NFS3ERR_ACCES.serialize(output)?;
+            nfs3::wcc_data { before: pre_obj_attr, after: nfs3::post_op_attr::None }
+                .serialize(output)?;
+            return Ok(());
+        }
+        Err(stat) => {
+            xdr::rpc::make_success_reply(xid).serialize(output)?;
+            stat.serialize(output)?;
+            nfs3::wcc_data { before: pre_obj_attr, after: nfs3::post_op_attr::None }
+                .serialize(output)?;
+            return Ok(());
+        }
+    }
 
     let stable = match nfs3::file::stable_how::from_u32(args.stable) {
         Some(stable) => stable,

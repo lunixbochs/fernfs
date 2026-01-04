@@ -79,6 +79,7 @@ dependencies = [
  "filetime",
  "futures",
  "intaglio",
+ "libc",
  "num-derive",
  "num-traits",
  "smallvec",

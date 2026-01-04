@@ -852,7 +852,7 @@ async fn write_reports_actual_count() {
 async fn access_returns_only_requested_bits() {
     let file_id = 2;
     let fs = Arc::new(TestFS::new());
-    fs.insert_attr(file_id, file_attr(file_id, 0, 0));
+    fs.insert_attr(file_id, file_attr(file_id, 0o444, 0));
     let context = make_context(fs.clone());
 
     let handle = fs.id_to_fh(file_id);
@@ -880,4 +880,122 @@ async fn access_returns_only_requested_bits() {
         xdr::deserialize::<nfs3::post_op_attr>(&mut output).expect("deserialize post_op_attr");
     let granted = xdr::deserialize::<u32>(&mut output).expect("deserialize access");
     assert_eq!(granted, nfs3::ACCESS3_READ);
+}
+
+#[tokio::test]
+async fn access_does_not_grant_delete_for_regular_file() {
+    let file_id = 2;
+    let fs = Arc::new(TestFS::new());
+    let mut attr = file_attr(file_id, 0o200, 0);
+    attr.uid = 1000;
+    attr.gid = 1000;
+    fs.insert_attr(file_id, attr);
+    let mut context = make_context(fs.clone());
+    context.auth = xdr::rpc::auth_unix { uid: 1000, gid: 1000, gids: vec![1000], ..Default::default() };
+
+    let handle = fs.id_to_fh(file_id);
+    let mut input = Cursor::new(Vec::new());
+    handle.serialize(&mut input).expect("serialize handle");
+    (nfs3::ACCESS3_MODIFY | nfs3::ACCESS3_DELETE)
+        .serialize(&mut input)
+        .expect("serialize access mask");
+    input.set_position(0);
+
+    let call = xdr::rpc::call_body {
+        rpcvers: 2,
+        prog: nfs3::PROGRAM,
+        vers: nfs3::VERSION,
+        proc: nfs3::NFSProgram::NFSPROC3_ACCESS as u32,
+        cred: xdr::rpc::opaque_auth::default(),
+        verf: xdr::rpc::opaque_auth::default(),
+    };
+
+    let mut output = Cursor::new(Vec::new());
+    handle_nfs(12, call, &mut input, &mut output, &context).await.expect("handle_nfs");
+
+    output.set_position(0);
+    let status = read_status(&mut output);
+    assert_eq!(status, nfs3::nfsstat3::NFS3_OK);
+    let _attr =
+        xdr::deserialize::<nfs3::post_op_attr>(&mut output).expect("deserialize post_op_attr");
+    let granted = xdr::deserialize::<u32>(&mut output).expect("deserialize access");
+    assert_eq!(granted, nfs3::ACCESS3_MODIFY);
+}
+
+#[tokio::test]
+async fn setattr_allows_metadata_without_modify() {
+    let file_id = 2;
+    let fs = Arc::new(TestFS::new());
+    let mut attr = file_attr(file_id, 0o444, 0);
+    attr.uid = 1000;
+    attr.gid = 1000;
+    fs.insert_attr(file_id, attr);
+    let mut context = make_context(fs.clone());
+    context.auth = xdr::rpc::auth_unix { uid: 1000, gid: 1000, gids: vec![1000], ..Default::default() };
+
+    let args = nfs3::SETATTR3args {
+        object: fs.id_to_fh(file_id),
+        new_attribute: nfs3::sattr3 { mode: Some(0o600), ..Default::default() },
+        guard: None,
+    };
+    let mut input = Cursor::new(Vec::new());
+    args.serialize(&mut input).expect("serialize setattr args");
+    input.set_position(0);
+
+    let call = xdr::rpc::call_body {
+        rpcvers: 2,
+        prog: nfs3::PROGRAM,
+        vers: nfs3::VERSION,
+        proc: nfs3::NFSProgram::NFSPROC3_SETATTR as u32,
+        cred: xdr::rpc::opaque_auth::default(),
+        verf: xdr::rpc::opaque_auth::default(),
+    };
+
+    let mut output = Cursor::new(Vec::new());
+    handle_nfs(13, call, &mut input, &mut output, &context).await.expect("handle_nfs");
+
+    output.set_position(0);
+    let status = read_status(&mut output);
+    assert_eq!(status, nfs3::nfsstat3::NFS3_OK);
+    let wcc = xdr::deserialize::<nfs3::wcc_data>(&mut output).expect("deserialize wcc_data");
+    let post = wcc.after.expect("missing post_op_attr");
+    assert_eq!(post.mode, 0o600);
+}
+
+#[tokio::test]
+async fn setattr_size_requires_modify() {
+    let file_id = 2;
+    let fs = Arc::new(TestFS::new());
+    let mut attr = file_attr(file_id, 0o444, 0);
+    attr.uid = 1000;
+    attr.gid = 1000;
+    fs.insert_attr(file_id, attr);
+    let mut context = make_context(fs.clone());
+    context.auth = xdr::rpc::auth_unix { uid: 1000, gid: 1000, gids: vec![1000], ..Default::default() };
+
+    let args = nfs3::SETATTR3args {
+        object: fs.id_to_fh(file_id),
+        new_attribute: nfs3::sattr3 { size: Some(1), ..Default::default() },
+        guard: None,
+    };
+    let mut input = Cursor::new(Vec::new());
+    args.serialize(&mut input).expect("serialize setattr args");
+    input.set_position(0);
+
+    let call = xdr::rpc::call_body {
+        rpcvers: 2,
+        prog: nfs3::PROGRAM,
+        vers: nfs3::VERSION,
+        proc: nfs3::NFSProgram::NFSPROC3_SETATTR as u32,
+        cred: xdr::rpc::opaque_auth::default(),
+        verf: xdr::rpc::opaque_auth::default(),
+    };
+
+    let mut output = Cursor::new(Vec::new());
+    handle_nfs(14, call, &mut input, &mut output, &context).await.expect("handle_nfs");
+
+    output.set_position(0);
+    let status = read_status(&mut output);
+    assert_eq!(status, nfs3::nfsstat3::NFS3ERR_ACCES);
+    let _wcc = xdr::deserialize::<nfs3::wcc_data>(&mut output).expect("deserialize wcc_data");
 }

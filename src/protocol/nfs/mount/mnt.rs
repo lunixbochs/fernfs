@@ -10,6 +10,42 @@ use tracing::debug;
 use crate::protocol::rpc;
 use crate::protocol::xdr::{self, deserialize, mount, Serialize};
 
+fn trim_start_slashes(mut path: &[u8]) -> &[u8] {
+    while path.first() == Some(&b'/') {
+        path = &path[1..];
+    }
+    path
+}
+
+fn trim_end_slashes(mut path: &[u8]) -> &[u8] {
+    while path.last() == Some(&b'/') {
+        path = &path[..path.len() - 1];
+    }
+    path
+}
+
+fn trim_slashes(path: &[u8]) -> &[u8] {
+    trim_end_slashes(trim_start_slashes(path))
+}
+
+fn export_subpath<'a>(requested: &'a [u8], export: &[u8]) -> Option<&'a [u8]> {
+    if export == b"/" {
+        if !requested.starts_with(b"/") {
+            return None;
+        }
+        return Some(&requested[1..]);
+    }
+
+    let rest = requested.strip_prefix(export)?;
+    if rest.is_empty() {
+        return Some(rest);
+    }
+    if rest.first() == Some(&b'/') {
+        return Some(&rest[1..]);
+    }
+    None
+}
+
 /// Handles `MOUNTPROC3_MNT` procedure.
 ///
 /// Function returns file handle for the requested
@@ -35,10 +71,11 @@ pub async fn mountproc3_mnt(
     context: &rpc::Context,
 ) -> Result<(), anyhow::Error> {
     let path = deserialize::<Vec<u8>>(input)?;
-    let utf8path = std::str::from_utf8(&path).unwrap_or_default();
-    debug!("mountproc3_mnt({:?},{:?}) ", xid, utf8path);
-    let path = if let Some(path) = utf8path.strip_prefix(context.export_name.as_str()) {
-        let path = path.trim_start_matches('/').trim_end_matches('/').trim().as_bytes();
+    let path_display = String::from_utf8_lossy(&path);
+    debug!("mountproc3_mnt({:?},{:?}) ", xid, path_display);
+    let export = context.export_name.as_bytes();
+    let path = if let Some(path) = export_subpath(&path, export) {
+        let path = trim_slashes(path);
         let mut new_path = Vec::with_capacity(path.len() + 1);
         new_path.push(b'/');
         new_path.extend_from_slice(path);

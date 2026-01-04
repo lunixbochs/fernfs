@@ -61,8 +61,22 @@ pub async fn nfsproc3_readdir(
     }
     let dirid = dirid.unwrap();
     let dir_attr_maybe = context.vfs.getattr(dirid).await;
-
-    let dir_attr = dir_attr_maybe.ok();
+    let dir_attr = dir_attr_maybe.as_ref().ok().copied();
+    match context.vfs.check_access(dirid, &context.auth, nfs3::ACCESS3_READ).await {
+        Ok(granted) if granted & nfs3::ACCESS3_READ != 0 => {}
+        Ok(_) => {
+            xdr::rpc::make_success_reply(xid).serialize(output)?;
+            nfs3::nfsstat3::NFS3ERR_ACCES.serialize(output)?;
+            dir_attr.serialize(output)?;
+            return Ok(());
+        }
+        Err(stat) => {
+            xdr::rpc::make_success_reply(xid).serialize(output)?;
+            stat.serialize(output)?;
+            dir_attr.serialize(output)?;
+            return Ok(());
+        }
+    }
 
     let dirversion = if let Ok(ref dir_attr) = dir_attr_maybe {
         let cvf_version =
@@ -101,10 +115,12 @@ pub async fn nfsproc3_readdir(
             // we count dir_count seperately as it is just a subset of fields
             let mut accumulated_dircount: usize = 0;
             let mut all_entries_written = true;
+            let mut wrote_any = false;
+            let mut too_small = false;
 
             // this is a wrapper around a writer that also just counts the number of bytes
             // written
-            let mut counting_output = crate::write_counter::WriteCounter::new(output);
+            let mut counting_output = crate::write_counter::WriteCounter::new(Vec::new());
 
             xdr::rpc::make_success_reply(xid).serialize(&mut counting_output)?;
             nfs3::nfsstat3::NFS3_OK.serialize(&mut counting_output)?;
@@ -137,6 +153,7 @@ pub async fn nfsproc3_readdir(
                     ctr += 1;
                     counting_output.write_all(&write_buf)?;
                     accumulated_dircount += added_dircount;
+                    wrote_any = true;
                     trace!(
                         "  -- lengths: {:?} / {:?} / {:?}",
                         accumulated_dircount,
@@ -146,8 +163,17 @@ pub async fn nfsproc3_readdir(
                 } else {
                     trace!(" -- insufficient space. truncating");
                     all_entries_written = false;
+                    if !wrote_any {
+                        too_small = true;
+                    }
                     break;
                 }
+            }
+            if too_small {
+                xdr::rpc::make_success_reply(xid).serialize(output)?;
+                nfs3::nfsstat3::NFS3ERR_TOOSMALL.serialize(output)?;
+                dir_attr.serialize(output)?;
+                return Ok(());
             }
             // false flag for the final entryplus* linked list
             false.serialize(&mut counting_output)?;
@@ -159,6 +185,7 @@ pub async fn nfsproc3_readdir(
                 debug!("  -- readdir eof {:?}", false);
                 false.serialize(&mut counting_output)?;
             }
+            output.write_all(&counting_output.into_inner())?;
             debug!(
                 "readir {}, has_version {},  start at {}, flushing {} entries, complete {}",
                 dirid, has_version, args.cookie, ctr, all_entries_written

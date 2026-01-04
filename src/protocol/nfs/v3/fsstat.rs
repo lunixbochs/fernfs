@@ -21,7 +21,7 @@
 
 use std::io::{Read, Write};
 
-use tracing::debug;
+use tracing::{debug, error};
 
 use crate::protocol::rpc;
 use crate::protocol::xdr::{self, deserialize, nfs3, Serialize};
@@ -60,20 +60,20 @@ pub async fn nfsproc3_fsstat(
     }
     let id = id.unwrap();
 
-    let obj_attr = context.vfs.getattr(id).await.ok();
-    let res = nfs3::fs::FSSTAT3resok {
-        obj_attributes: obj_attr,
-        tbytes: 1024 * 1024 * 1024 * 1024,
-        fbytes: 1024 * 1024 * 1024 * 1024,
-        abytes: 1024 * 1024 * 1024 * 1024,
-        tfiles: 1024 * 1024 * 1024,
-        ffiles: 1024 * 1024 * 1024,
-        afiles: 1024 * 1024 * 1024,
-        invarsec: u32::MAX,
-    };
-    xdr::rpc::make_success_reply(xid).serialize(output)?;
-    nfs3::nfsstat3::NFS3_OK.serialize(output)?;
-    debug!(" {:?} ---> {:?}", xid, res);
-    res.serialize(output)?;
+    match context.vfs.fsstat(id).await {
+        Ok(res) => {
+            xdr::rpc::make_success_reply(xid).serialize(output)?;
+            nfs3::nfsstat3::NFS3_OK.serialize(output)?;
+            debug!(" {:?} ---> {:?}", xid, res);
+            res.serialize(output)?;
+        }
+        Err(stat) => {
+            let obj_attr = context.vfs.getattr(id).await.ok();
+            error!("nfsproc3_fsstat error {:?} --> {:?}", xid, stat);
+            xdr::rpc::make_success_reply(xid).serialize(output)?;
+            stat.serialize(output)?;
+            obj_attr.serialize(output)?;
+        }
+    }
     Ok(())
 }

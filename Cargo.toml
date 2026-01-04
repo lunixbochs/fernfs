@@ -27,6 +27,9 @@ tokio = { version = "1.0", features = ["full", "time"] }
 tracing = "0.1.31"
 tracing-attributes = "0.1"
 
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [dev-dependencies]
 intaglio = { version = "1.6" }
 tracing-subscriber = { version = "0.3", features = ["tracing-log"] }

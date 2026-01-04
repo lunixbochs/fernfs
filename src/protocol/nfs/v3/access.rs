@@ -18,8 +18,6 @@ use tracing::debug;
 
 use crate::protocol::rpc;
 use crate::protocol::xdr::{self, deserialize, nfs3, Serialize};
-use crate::vfs;
-
 /// Handles `NFSv3` `ACCESS` procedure (procedure 4)
 ///
 /// `ACCESS` determines the access rights a user has to a file system object.
@@ -97,70 +95,15 @@ pub async fn nfsproc3_access(
         }
     };
 
-    // Check access permissions based on file type and attributes
-    let mut granted_access = 0;
-
-    // Only grant LOOKUP when requested.
-    if access & nfs3::ACCESS3_LOOKUP != 0 {
-        granted_access |= nfs3::ACCESS3_LOOKUP;
-    }
-
-    // Check permissions based on file type
-    match attr.ftype {
-        nfs3::ftype3::NF3REG => {
-            // For regular files
-            if !matches!(context.vfs.capabilities(), vfs::Capabilities::ReadWrite) {
-                // If the file system is read-only, allow only reading
-                if access & (nfs3::ACCESS3_READ | nfs3::ACCESS3_EXECUTE) != 0 {
-                    granted_access |= access & (nfs3::ACCESS3_READ | nfs3::ACCESS3_EXECUTE);
-                }
-            } else {
-                // If the file system supports read and write, check access permissions
-                // Here you can add a check for real access permissions based on file attributes
-                // For example, check owner, group, and access permissions
-
-                // For simplicity, allow all requested permissions
-                granted_access |= access;
-            }
+    let granted_access = match context.vfs.check_access(id, &context.auth, access).await {
+        Ok(granted) => granted,
+        Err(stat) => {
+            xdr::rpc::make_success_reply(xid).serialize(output)?;
+            stat.serialize(output)?;
+            nfs3::post_op_attr::Some(attr).serialize(output)?;
+            return Ok(());
         }
-        nfs3::ftype3::NF3DIR => {
-            // For directories
-            if !matches!(context.vfs.capabilities(), vfs::Capabilities::ReadWrite) {
-                // If the file system is read-only, allow only reading
-                if access & nfs3::ACCESS3_READ != 0 {
-                    granted_access |= nfs3::ACCESS3_READ;
-                }
-            } else {
-                // If the file system supports read and write, check access permissions
-                // For directories, allow reading and execution
-                if access & (nfs3::ACCESS3_READ | nfs3::ACCESS3_EXECUTE) != 0 {
-                    granted_access |= access & (nfs3::ACCESS3_READ | nfs3::ACCESS3_EXECUTE);
-                }
-
-                // For operations that modify the directory, check write permissions
-                if access & (nfs3::ACCESS3_MODIFY | nfs3::ACCESS3_EXTEND | nfs3::ACCESS3_DELETE)
-                    != 0
-                {
-                    // Here you can add a check for real access permissions
-                    granted_access |= access
-                        & (nfs3::ACCESS3_MODIFY | nfs3::ACCESS3_EXTEND | nfs3::ACCESS3_DELETE);
-                }
-            }
-        }
-        nfs3::ftype3::NF3LNK => {
-            // For symbolic links, allow only reading
-            if access & nfs3::ACCESS3_READ != 0 {
-                granted_access |= nfs3::ACCESS3_READ;
-            }
-        }
-        _ => {
-            // For other file types (devices, sockets, etc.)
-            // Allow only reading and execution
-            if access & (nfs3::ACCESS3_READ | nfs3::ACCESS3_EXECUTE) != 0 {
-                granted_access |= access & (nfs3::ACCESS3_READ | nfs3::ACCESS3_EXECUTE);
-            }
-        }
-    }
+    };
 
     debug!(" {:?} ---> {:?}", xid, granted_access);
     xdr::rpc::make_success_reply(xid).serialize(output)?;

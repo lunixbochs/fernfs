@@ -5,6 +5,11 @@ use std::os::unix::fs::MetadataExt;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
+#[cfg(unix)]
+use std::ffi::CString;
+#[cfg(unix)]
+use std::path::Path;
+
 use async_trait::async_trait;
 use tokio::fs::{self, File, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
@@ -12,11 +17,24 @@ use tracing::debug;
 
 use fernfs::fs_util::{file_setattr, metadata_to_fattr3, path_setattr};
 use fernfs::vfs;
+use fernfs::xdr;
 use fernfs::xdr::nfs3;
 
 use crate::create_fs_object::CreateFSObject;
 use crate::error_handling::{exists_no_traverse, NFSResult, RefreshResult};
 use crate::fs_map::FSMap;
+
+#[cfg(unix)]
+fn statvfs_for_path(path: &Path) -> Result<libc::statvfs, nfs3::nfsstat3> {
+    let c_path = CString::new(path.as_os_str().as_bytes())
+        .map_err(|_| nfs3::nfsstat3::NFS3ERR_INVAL)?;
+    let mut stats = unsafe { std::mem::zeroed::<libc::statvfs>() };
+    let rc = unsafe { libc::statvfs(c_path.as_ptr(), &mut stats) };
+    if rc != 0 {
+        return Err(nfs3::nfsstat3::NFS3ERR_IO);
+    }
+    Ok(stats)
+}
 
 /// A file system implementation that mirrors a local directory
 #[derive(Debug)]
@@ -203,6 +221,54 @@ impl vfs::NFSFileSystem for MirrorFS {
         Ok(ent.fsmeta)
     }
 
+    async fn check_access(
+        &self,
+        id: nfs3::fileid3,
+        auth: &xdr::rpc::auth_unix,
+        access: u32,
+    ) -> NFSResult<u32> {
+        let fsmap = self.fsmap.lock().await;
+        let ent = fsmap.find_entry(id)?;
+        let path = fsmap.sym_to_path(&ent.name).await;
+        drop(fsmap);
+
+        #[cfg(unix)]
+        let meta = {
+            let file =
+                OpenOptions::new().read(true).custom_flags(libc::O_NOFOLLOW).open(&path).await;
+            match file {
+                Ok(handle) => handle.metadata().await.map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?,
+                Err(err) if err.raw_os_error() == Some(libc::ELOOP) => {
+                    fs::symlink_metadata(&path).await.map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?
+                }
+                Err(err) => {
+                    return Err(match err.kind() {
+                        ErrorKind::NotFound => nfs3::nfsstat3::NFS3ERR_NOENT,
+                        ErrorKind::PermissionDenied => nfs3::nfsstat3::NFS3ERR_ACCES,
+                        _ => nfs3::nfsstat3::NFS3ERR_IO,
+                    });
+                }
+            }
+        };
+        #[cfg(not(unix))]
+        let meta = {
+            let file = OpenOptions::new().read(true).open(&path).await;
+            match file {
+                Ok(handle) => handle.metadata().await.map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?,
+                Err(err) => {
+                    return Err(match err.kind() {
+                        ErrorKind::NotFound => nfs3::nfsstat3::NFS3ERR_NOENT,
+                        ErrorKind::PermissionDenied => nfs3::nfsstat3::NFS3ERR_ACCES,
+                        _ => nfs3::nfsstat3::NFS3ERR_IO,
+                    });
+                }
+            }
+        };
+
+        let attr = metadata_to_fattr3(id, &meta);
+        Ok(vfs::permissions::access_mask(&attr, auth, self.capabilities(), access))
+    }
+
     /// Reads data from a file
     async fn read(&self, id: nfs3::fileid3, offset: u64, count: u32) -> NFSResult<(Vec<u8>, bool)> {
         let fsmap = self.fsmap.lock().await;
@@ -310,6 +376,46 @@ impl vfs::NFSFileSystem for MirrorFS {
         debug!("readdir_result:{:?}", ret);
 
         Ok(ret)
+    }
+
+    async fn fsstat(
+        &self,
+        root_fileid: nfs3::fileid3,
+    ) -> NFSResult<nfs3::fs::FSSTAT3resok> {
+        let obj_attr = self.getattr(root_fileid).await.ok();
+        #[cfg(unix)]
+        {
+            let root_path = { self.fsmap.lock().await.root.clone() };
+            let stats = statvfs_for_path(&root_path)?;
+            let block_size = if stats.f_frsize > 0 {
+                stats.f_frsize as u64
+            } else {
+                stats.f_bsize as u64
+            };
+            return Ok(nfs3::fs::FSSTAT3resok {
+                obj_attributes: obj_attr,
+                tbytes: block_size.saturating_mul(stats.f_blocks as u64),
+                fbytes: block_size.saturating_mul(stats.f_bfree as u64),
+                abytes: block_size.saturating_mul(stats.f_bavail as u64),
+                tfiles: stats.f_files as u64,
+                ffiles: stats.f_ffree as u64,
+                afiles: stats.f_favail as u64,
+                invarsec: 0,
+            });
+        }
+        #[cfg(not(unix))]
+        {
+            Ok(nfs3::fs::FSSTAT3resok {
+                obj_attributes: obj_attr,
+                tbytes: 0,
+                fbytes: 0,
+                abytes: 0,
+                tfiles: 0,
+                ffiles: 0,
+                afiles: 0,
+                invarsec: 0,
+            })
+        }
     }
 
     /// Sets attributes of a file
