@@ -278,7 +278,9 @@ impl FSMap {
             {
                 let sym = self.intern.intern(entry.file_name()).unwrap();
                 cur_path.push(sym);
-                let meta = entry.metadata().await.unwrap();
+                let meta = fs::symlink_metadata(entry.path())
+                    .await
+                    .map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
                 let next_id = self.create_entry(&cur_path, meta).await;
                 new_children.insert(sym, next_id);
                 cur_path.pop();

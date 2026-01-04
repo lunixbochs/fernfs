@@ -632,14 +632,13 @@ impl vfs::NFSFileSystem for MirrorFS {
         let ent = fsmap.find_entry(id)?;
         let path = fsmap.sym_to_path(&ent.name).await;
         drop(fsmap);
-        if path.is_symlink() {
-            if let Ok(target) = path.read_link() {
-                Ok(target.as_os_str().as_bytes().into())
-            } else {
-                Err(nfs3::nfsstat3::NFS3ERR_IO)
-            }
-        } else {
-            Err(nfs3::nfsstat3::NFS3ERR_BADTYPE)
+        match path.read_link() {
+            Ok(target) => Ok(target.as_os_str().as_bytes().into()),
+            Err(err) => match err.kind() {
+                ErrorKind::InvalidInput => Err(nfs3::nfsstat3::NFS3ERR_BADTYPE),
+                ErrorKind::NotFound => Err(nfs3::nfsstat3::NFS3ERR_NOENT),
+                _ => Err(nfs3::nfsstat3::NFS3ERR_IO),
+            },
         }
     }
 
