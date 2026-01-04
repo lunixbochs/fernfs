@@ -5,7 +5,7 @@ lima-env:
 	limactl start --progress --name fernfs --set ".param.AppDir=\"$(shell pwd)\"" -y lima.yaml
 
 lima-cargo:
-	limactl shell --workdir /mnt/app fernfs -- bash -c 'cargo build --examples && sudo systemctl restart fernfs && sudo umount /mnt/fernfs && sudo mount /mnt/fernfs'
+	limactl shell --workdir /mnt/app fernfs -- bash -c 'cargo build && sudo systemctl restart fernfs && sudo umount /mnt/fernfs && sudo mount /mnt/fernfs'
 
 test-ganesha: lima-cargo
 	limactl shell fernfs -- /mnt/app/scripts/test-ganesha.sh
