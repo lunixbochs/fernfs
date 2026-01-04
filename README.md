@@ -53,13 +53,27 @@ sudo mount_nfs -o nolocks,vers=3,tcp,rsize=131072,port=11111,mountport=11111 loc
 mount.exe -o anon,nolock,mtype=soft,fileaccess=6,casesensitive,lang=ansi,rsize=128,wsize=128,timeout=60,retry=2 \\127.0.0.1\\ X:
 ```
 
-### Mirror File System
+### FernFS CLI (Mirror File System)
 
-The mirror example exports an existing directory over NFS:
+The `fernfs` binary exports an existing directory over NFS:
 
 ```bash
-cargo run --example mirrorfs /path/to/directory
+cargo install fernfs
+fernfs /path/to/directory
 ```
+
+For local development builds:
+
+```bash
+cargo run --bin fernfs -- /path/to/directory
+```
+
+#### Command Line Options
+
+- `-h, --host <HOST>` Bind host (default: 127.0.0.1)
+- `-p, --port <PORT>` Bind port (default: 11111)
+- `--allow-unprivileged-source-port` Allow client source ports >= 1024 (default: require privileged)
+- `--help` Show help and exit
 
 ## Creating Your Own NFS Server
 

@@ -70,8 +70,6 @@ pub async fn nfsproc3_setattr(
     }
     let id = id.unwrap();
 
-    let ctime;
-
     let current_attr = match context.vfs.getattr(id).await {
         Ok(v) => v,
         Err(stat) => {
@@ -86,7 +84,7 @@ pub async fn nfsproc3_setattr(
         mtime: current_attr.mtime,
         ctime: current_attr.ctime,
     });
-    ctime = current_attr.ctime;
+    let ctime = current_attr.ctime;
     let requires_modify = args.new_attribute.size.is_some();
     if requires_modify {
         match context.vfs.check_access(id, &context.auth, nfs3::ACCESS3_MODIFY).await {

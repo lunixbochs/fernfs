@@ -11,7 +11,7 @@ pub mod fs;
 pub mod fs_entry;
 pub mod fs_map;
 
-/// Main entry point for the mirror file system example
+/// Main entry point for the FernFS CLI (mirror file system)
 ///
 /// This function initializes the tracing subscriber, reads the directory path
 /// from command line arguments, creates a MirrorFS instance, and starts
@@ -25,7 +25,7 @@ async fn main() {
 
     fn print_help() {
         eprintln!(
-            "Usage: mirror_fs [--host <HOST>] [--port <PORT>] [--allow-unprivileged-source-port] <DIRECTORY>\n\
+            "Usage: fernfs [--host <HOST>] [--port <PORT>] [--allow-unprivileged-source-port] <DIRECTORY>\n\
              \n\
              Options:\n\
                -h, --host <HOST>                Bind host (default: {DEFAULT_HOST})\n\

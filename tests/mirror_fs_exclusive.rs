@@ -5,19 +5,19 @@ use fernfs::vfs::NFSFileSystem;
 use fernfs::xdr::nfs3;
 
 #[allow(dead_code)]
-#[path = "../examples/mirror_fs/create_fs_object.rs"]
+#[path = "../src/bin/fernfs/create_fs_object.rs"]
 mod create_fs_object;
 #[allow(dead_code)]
-#[path = "../examples/mirror_fs/error_handling.rs"]
+#[path = "../src/bin/fernfs/error_handling.rs"]
 mod error_handling;
 #[allow(dead_code)]
-#[path = "../examples/mirror_fs/fs_entry.rs"]
+#[path = "../src/bin/fernfs/fs_entry.rs"]
 mod fs_entry;
 #[allow(dead_code)]
-#[path = "../examples/mirror_fs/fs_map.rs"]
+#[path = "../src/bin/fernfs/fs_map.rs"]
 mod fs_map;
 #[allow(dead_code)]
-#[path = "../examples/mirror_fs/fs.rs"]
+#[path = "../src/bin/fernfs/fs.rs"]
 mod mirror_fs;
 
 struct TempDir {

@@ -2,14 +2,11 @@ use std::ffi::OsStr;
 use std::io::{ErrorKind, SeekFrom};
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::MetadataExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 #[cfg(unix)]
 use std::ffi::CString;
-#[cfg(unix)]
-use std::path::Path;
-
 use async_trait::async_trait;
 use tokio::fs::{self, File, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
@@ -56,7 +53,7 @@ impl MirrorFS {
         dirid: nfs3::fileid3,
         objectname: &nfs3::filename3,
         verifier: &nfs3::createverf3,
-        path: &PathBuf,
+        path: &Path,
     ) -> NFSResult<Option<(nfs3::fileid3, nfs3::fattr3)>> {
         if let Ok(existing_id) = fsmap.find_child(dirid, objectname.as_ref()).await {
             if let Ok(entry) = fsmap.find_entry(existing_id) {

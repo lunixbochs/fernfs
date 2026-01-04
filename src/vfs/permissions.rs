@@ -10,7 +10,7 @@ pub struct UnixPerms {
 }
 
 fn auth_matches_gid(auth: &xdr::rpc::auth_unix, gid: nfs3::gid3) -> bool {
-    auth.gid == gid || auth.gids.iter().any(|candidate| *candidate == gid)
+    auth.gid == gid || auth.gids.contains(&gid)
 }
 
 pub fn unix_mode_perms(attr: &nfs3::fattr3, auth: &xdr::rpc::auth_unix) -> UnixPerms {
