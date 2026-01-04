@@ -59,21 +59,15 @@ pub async fn nfsproc3_rmdir(
         Ok(_) => {
             xdr::rpc::make_success_reply(xid).serialize(output)?;
             nfs3::nfsstat3::NFS3ERR_ACCES.serialize(output)?;
-            nfs3::wcc_data {
-                before: pre_dir_attr,
-                after: nfs3::post_op_attr::Some(dir_attr),
-            }
-            .serialize(output)?;
+            nfs3::wcc_data { before: pre_dir_attr, after: nfs3::post_op_attr::Some(dir_attr) }
+                .serialize(output)?;
             return Ok(());
         }
         Err(stat) => {
             xdr::rpc::make_success_reply(xid).serialize(output)?;
             stat.serialize(output)?;
-            nfs3::wcc_data {
-                before: pre_dir_attr,
-                after: nfs3::post_op_attr::Some(dir_attr),
-            }
-            .serialize(output)?;
+            nfs3::wcc_data { before: pre_dir_attr, after: nfs3::post_op_attr::Some(dir_attr) }
+                .serialize(output)?;
             return Ok(());
         }
     }

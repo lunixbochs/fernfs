@@ -20,23 +20,11 @@ pub fn unix_mode_perms(attr: &nfs3::fattr3, auth: &xdr::rpc::auth_unix) -> UnixP
 
     let mode = attr.mode & 0o777;
     if auth.uid == attr.uid {
-        UnixPerms {
-            read: mode & 0o400 != 0,
-            write: mode & 0o200 != 0,
-            exec: mode & 0o100 != 0,
-        }
+        UnixPerms { read: mode & 0o400 != 0, write: mode & 0o200 != 0, exec: mode & 0o100 != 0 }
     } else if auth_matches_gid(auth, attr.gid) {
-        UnixPerms {
-            read: mode & 0o040 != 0,
-            write: mode & 0o020 != 0,
-            exec: mode & 0o010 != 0,
-        }
+        UnixPerms { read: mode & 0o040 != 0, write: mode & 0o020 != 0, exec: mode & 0o010 != 0 }
     } else {
-        UnixPerms {
-            read: mode & 0o004 != 0,
-            write: mode & 0o002 != 0,
-            exec: mode & 0o001 != 0,
-        }
+        UnixPerms { read: mode & 0o004 != 0, write: mode & 0o002 != 0, exec: mode & 0o001 != 0 }
     }
 }
 

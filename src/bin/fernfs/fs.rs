@@ -5,9 +5,9 @@ use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
+use async_trait::async_trait;
 #[cfg(unix)]
 use std::ffi::CString;
-use async_trait::async_trait;
 use tokio::fs::{self, File, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use tracing::debug;
@@ -23,8 +23,8 @@ use crate::fs_map::FSMap;
 
 #[cfg(unix)]
 fn statvfs_for_path(path: &Path) -> Result<libc::statvfs, nfs3::nfsstat3> {
-    let c_path = CString::new(path.as_os_str().as_bytes())
-        .map_err(|_| nfs3::nfsstat3::NFS3ERR_INVAL)?;
+    let c_path =
+        CString::new(path.as_os_str().as_bytes()).map_err(|_| nfs3::nfsstat3::NFS3ERR_INVAL)?;
     let mut stats = unsafe { std::mem::zeroed::<libc::statvfs>() };
     let rc = unsafe { libc::statvfs(c_path.as_ptr(), &mut stats) };
     if rc != 0 {
@@ -375,20 +375,14 @@ impl vfs::NFSFileSystem for MirrorFS {
         Ok(ret)
     }
 
-    async fn fsstat(
-        &self,
-        root_fileid: nfs3::fileid3,
-    ) -> NFSResult<nfs3::fs::FSSTAT3resok> {
+    async fn fsstat(&self, root_fileid: nfs3::fileid3) -> NFSResult<nfs3::fs::FSSTAT3resok> {
         let obj_attr = self.getattr(root_fileid).await.ok();
         #[cfg(unix)]
         {
             let root_path = { self.fsmap.lock().await.root.clone() };
             let stats = statvfs_for_path(&root_path)?;
-            let block_size = if stats.f_frsize > 0 {
-                stats.f_frsize as u64
-            } else {
-                stats.f_bsize as u64
-            };
+            let block_size =
+                if stats.f_frsize > 0 { stats.f_frsize as u64 } else { stats.f_bsize as u64 };
             return Ok(nfs3::fs::FSSTAT3resok {
                 obj_attributes: obj_attr,
                 tbytes: block_size.saturating_mul(stats.f_blocks as u64),

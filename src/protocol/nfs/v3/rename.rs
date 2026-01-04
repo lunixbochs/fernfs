@@ -102,9 +102,7 @@ pub async fn nfsproc3_rename(
 
     // get the object attributes before the write
     let from_dir_attr = match context.vfs.getattr(from_dirid).await {
-        Ok(v) => {
-            v
-        }
+        Ok(v) => v,
         Err(stat) => {
             error!("Cannot stat directory");
             xdr::rpc::make_success_reply(xid).serialize(output)?;
@@ -122,9 +120,7 @@ pub async fn nfsproc3_rename(
 
     // get the object attributes before the write
     let to_dir_attr = match context.vfs.getattr(to_dirid).await {
-        Ok(v) => {
-            v
-        }
+        Ok(v) => v,
         Err(stat) => {
             error!("Cannot stat directory");
             xdr::rpc::make_success_reply(xid).serialize(output)?;
@@ -140,12 +136,9 @@ pub async fn nfsproc3_rename(
         ctime: to_dir_attr.ctime,
     });
 
-    let from_access = context
-        .vfs
-        .check_access(from_dirid, &context.auth, nfs3::ACCESS3_MODIFY)
-        .await;
-    let to_access =
-        context.vfs.check_access(to_dirid, &context.auth, nfs3::ACCESS3_MODIFY).await;
+    let from_access =
+        context.vfs.check_access(from_dirid, &context.auth, nfs3::ACCESS3_MODIFY).await;
+    let to_access = context.vfs.check_access(to_dirid, &context.auth, nfs3::ACCESS3_MODIFY).await;
     match (from_access, to_access) {
         (Ok(from_granted), Ok(to_granted))
             if from_granted & nfs3::ACCESS3_MODIFY != 0

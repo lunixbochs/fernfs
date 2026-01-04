@@ -891,7 +891,8 @@ async fn access_does_not_grant_delete_for_regular_file() {
     attr.gid = 1000;
     fs.insert_attr(file_id, attr);
     let mut context = make_context(fs.clone());
-    context.auth = xdr::rpc::auth_unix { uid: 1000, gid: 1000, gids: vec![1000], ..Default::default() };
+    context.auth =
+        xdr::rpc::auth_unix { uid: 1000, gid: 1000, gids: vec![1000], ..Default::default() };
 
     let handle = fs.id_to_fh(file_id);
     let mut input = Cursor::new(Vec::new());
@@ -931,7 +932,8 @@ async fn setattr_allows_metadata_without_modify() {
     attr.gid = 1000;
     fs.insert_attr(file_id, attr);
     let mut context = make_context(fs.clone());
-    context.auth = xdr::rpc::auth_unix { uid: 1000, gid: 1000, gids: vec![1000], ..Default::default() };
+    context.auth =
+        xdr::rpc::auth_unix { uid: 1000, gid: 1000, gids: vec![1000], ..Default::default() };
 
     let args = nfs3::SETATTR3args {
         object: fs.id_to_fh(file_id),
@@ -971,7 +973,8 @@ async fn setattr_size_requires_modify() {
     attr.gid = 1000;
     fs.insert_attr(file_id, attr);
     let mut context = make_context(fs.clone());
-    context.auth = xdr::rpc::auth_unix { uid: 1000, gid: 1000, gids: vec![1000], ..Default::default() };
+    context.auth =
+        xdr::rpc::auth_unix { uid: 1000, gid: 1000, gids: vec![1000], ..Default::default() };
 
     let args = nfs3::SETATTR3args {
         object: fs.id_to_fh(file_id),
