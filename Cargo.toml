@@ -1,6 +1,6 @@
 [package]
 name = "fernfs"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 description = "A Rust NFS Server implementation"
 publish = true
