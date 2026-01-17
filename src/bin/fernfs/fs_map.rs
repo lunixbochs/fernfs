@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::ffi::{OsStr, OsString};
 use std::fs::Metadata;
+use std::io::ErrorKind;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::MetadataExt;
 use std::path::PathBuf;
@@ -257,49 +258,46 @@ impl FSMap {
     /// Refreshes the directory listing for a given directory ID
     pub async fn refresh_dir_list(&mut self, id: nfs3::fileid3) -> NFSResult<()> {
         let entry = self.id_to_path.get(&id).ok_or(nfs3::nfsstat3::NFS3ERR_NOENT)?.clone();
-
-        // if there are children and the metadata did not change
-        if entry.children.is_some() && !fattr3_differ(&entry.children_meta, &entry.fsmeta) {
-            return Ok(());
-        }
-
         if !entry.is_directory() {
             return Ok(());
         }
+
+        let map_error = |err: std::io::Error| match err.kind() {
+            ErrorKind::NotFound => nfs3::nfsstat3::NFS3ERR_NOENT,
+            ErrorKind::PermissionDenied => nfs3::nfsstat3::NFS3ERR_ACCES,
+            ErrorKind::NotADirectory => nfs3::nfsstat3::NFS3ERR_NOTDIR,
+            _ => nfs3::nfsstat3::NFS3ERR_IO,
+        };
 
         let mut cur_path = entry.name.clone();
         let path = self.sym_to_path(&entry.name).await;
         let mut new_children: BTreeMap<Symbol, u64> = BTreeMap::new();
         debug!("Relisting entry {:?}: {:?}. Ent: {:?}", id, path, entry);
 
-        if let Ok(mut listing) = fs::read_dir(&path).await {
-            while let Some(entry) =
-                listing.next_entry().await.map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?
-            {
-                let sym = self.intern.intern(entry.file_name()).unwrap();
-                cur_path.push(sym);
-                let meta = fs::symlink_metadata(entry.path())
-                    .await
-                    .map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
-                let next_id = self.create_entry(&cur_path, meta).await;
-                new_children.insert(sym, next_id);
-                cur_path.pop();
-            }
+        let mut listing = fs::read_dir(&path).await.map_err(map_error)?;
+        while let Some(entry) = listing.next_entry().await.map_err(map_error)? {
+            let sym = self.intern.intern(entry.file_name()).unwrap();
+            cur_path.push(sym);
+            let meta =
+                fs::symlink_metadata(entry.path()).await.map_err(|_| nfs3::nfsstat3::NFS3ERR_IO)?;
+            let next_id = self.create_entry(&cur_path, meta).await;
+            new_children.insert(sym, next_id);
+            cur_path.pop();
+        }
 
-            if let Some(old_children) = entry.children {
-                for (name_sym, _) in old_children {
-                    if !new_children.contains_key(&name_sym) {
-                        let mut old_path = entry.name.clone();
-                        old_path.push(name_sym);
-                        self.remove_path(&old_path);
-                    }
+        if let Some(old_children) = entry.children {
+            for (name_sym, _) in old_children {
+                if !new_children.contains_key(&name_sym) {
+                    let mut old_path = entry.name.clone();
+                    old_path.push(name_sym);
+                    self.remove_path(&old_path);
                 }
             }
+        }
 
-            if let Some(entry_mut) = self.id_to_path.get_mut(&id) {
-                entry_mut.children = Some(new_children);
-                entry_mut.children_meta = entry_mut.fsmeta;
-            }
+        if let Some(entry_mut) = self.id_to_path.get_mut(&id) {
+            entry_mut.children = Some(new_children);
+            entry_mut.children_meta = entry_mut.fsmeta;
         }
 
         Ok(())
@@ -307,14 +305,18 @@ impl FSMap {
 
     /// Creates a new entry in the file system map
     pub async fn create_entry(&mut self, fullpath: &Vec<Symbol>, meta: Metadata) -> nfs3::fileid3 {
-        if let Some(chid) = self.path_to_id.get(fullpath) {
-            if let Some(chent) = self.id_to_path.get_mut(chid) {
-                chent.fsmeta = metadata_to_fattr3(*chid, &meta);
+        let inode_key = InodeKey::from_meta(&meta);
+        if let Some(chid) = self.path_to_id.get(fullpath).copied() {
+            if self.id_to_inode.get(&chid).copied() == Some(inode_key) {
+                if let Some(chent) = self.id_to_path.get_mut(&chid) {
+                    chent.fsmeta = metadata_to_fattr3(chid, &meta);
+                }
+                return chid;
             }
-            return *chid;
+            // Path was reused for a different inode (e.g. atomic replace); detach old mapping.
+            let _ = self.remove_path(fullpath);
         }
 
-        let inode_key = InodeKey::from_meta(&meta);
         if let Some(existing_id) = self.inode_to_id.get(&inode_key).copied() {
             if let Some(entry) = self.id_to_path.get_mut(&existing_id) {
                 entry.fsmeta = metadata_to_fattr3(existing_id, &meta);

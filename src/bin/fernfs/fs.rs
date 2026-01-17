@@ -184,7 +184,17 @@ impl vfs::NFSFileSystem for MirrorFS {
         let mut fsmap = self.fsmap.lock().await;
         if let Ok(id) = fsmap.find_child(dirid, filename).await {
             if fsmap.id_to_path.contains_key(&id) {
-                return Ok(id);
+                match fsmap.refresh_entry(id).await? {
+                    RefreshResult::Delete => {
+                        // Fall through to refresh the directory listing below.
+                    }
+                    _ => {
+                        if fsmap.find_child(dirid, filename).await.is_ok() {
+                            return Ok(id);
+                        }
+                        return Err(nfs3::nfsstat3::NFS3ERR_NOENT);
+                    }
+                }
             }
         }
         // Optimize for negative lookups.
@@ -456,11 +466,12 @@ impl vfs::NFSFileSystem for MirrorFS {
         let _ = f.flush().await;
         let _ = f.sync_all().await;
         let meta = f.metadata().await.or(Err(nfs3::nfsstat3::NFS3ERR_IO))?;
-        Ok((
-            metadata_to_fattr3(id, &meta),
-            nfs3::file::stable_how::FILE_SYNC,
-            data.len() as nfs3::count3,
-        ))
+        let attr = metadata_to_fattr3(id, &meta);
+        let mut fsmap = self.fsmap.lock().await;
+        if let Ok(entry) = fsmap.find_entry_mut(id) {
+            entry.fsmeta = attr;
+        }
+        Ok((attr, nfs3::file::stable_how::FILE_SYNC, data.len() as nfs3::count3))
     }
 
     /// Creates a file in a directory
